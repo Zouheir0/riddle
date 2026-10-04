@@ -1,25 +1,4 @@
-<!-- Add Firebase SDKs to the <head> of play.html as well -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-
-  <script>
-    // ... [Keep your AudioEngine class exactly as is] ...
-
-    // Initialize Firebase
-    const firebaseConfig = {
-      apiKey: "AIzaSyCph3KRkKFYMdPlwUviavHaZ9QngiKWGaU",
-  authDomain: "riddle-701ae.firebaseapp.com",
-  databaseURL: "https://riddle-701ae-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "riddle-701ae",
-  storageBucket: "riddle-701ae.firebasestorage.app",
-  messagingSenderId: "748642861259",
-  appId: "1:748642861259:web:c016f007988340fc165b4e",
-  measurementId: "G-SPXP0W5NDY"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-
-    // Global Application State
+// Global Application State
     let currentLang = 'en';
     let currentRiddleIndex = 0;
     let currentAttempts = 1;
@@ -27,17 +6,14 @@
     let totalScore = 0.0;
     let isProcessingGuess = false;
     let answeredCorrectly = false;
-    let isGameActive = false;
     
-    // Dynamic Data Variables (previously hardcoded)
+    // Dynamic Custom Data
     let CUSTOM_RIDDLES = [];
-    let DYNAMIC_OPTIONS = [];
+    let GAME_SETTINGS = { usePoints: true, hintPenalty: 0.5, wrongPenalty: 0.5 };
 
-    // Initialization Sequence
     window.onload = async function() {
       showMainMenu();
       await fetchCustomGameData();
-      updateI18nUI();
     };
 
     async function fetchCustomGameData() {
@@ -45,38 +21,71 @@
       const gameId = urlParams.get('id');
 
       if (!gameId) {
-        alert("No game ID found in URL. Redirecting to builder...");
+        alert("No game ID found in URL. Redirecting to game builder...");
         window.location.href = 'index.html';
         return;
       }
 
-      // Fetch from Firebase
-      const snapshot = await db.ref('custom_games/' + gameId).once('value');
-      const gameData = snapshot.val();
+      try {
+        const snapshot = await db.ref('custom_games/' + gameId).once('value');
+        const gameData = snapshot.val();
 
-      if (!gameData) {
-        alert("Game not found or deleted!");
-        return;
+        if (!gameData) {
+          alert("Game not found or has been deleted!");
+          return;
+        }
+
+        // Apply Text Defaults
+        document.querySelector('h1').textContent = gameData.title; 
+        document.getElementById('menu-sub-title').textContent = gameData.subtitle;
+        document.getElementById('sub-header-title').textContent = gameData.subtitle;
+        
+        // Setup State Arrays
+        CUSTOM_RIDDLES = gameData.riddles;
+        GAME_SETTINGS = gameData.settings || GAME_SETTINGS;
+        
+        // Handle Points System UI Toggles
+        if (!GAME_SETTINGS.usePoints) {
+          // Hide Leaderboard and Points based UI
+          document.querySelectorAll('[onclick="openLeaderboard()"]').forEach(btn => btn.classList.add('hidden'));
+          document.getElementById('score-display').parentElement.classList.add('hidden');
+          document.getElementById('points-possible-text').classList.add('hidden');
+          
+          // Hide score info inside modals by finding their specific sections
+          document.getElementById('correct-modal-pts-earned').parentElement.parentElement.classList.add('hidden');
+          document.getElementById('final-score-value').parentElement.classList.add('hidden');
+          
+          // Hide Leaderboard submission in Finish modal
+          document.getElementById('player-name-input').parentElement.classList.add('hidden');
+          document.querySelector('button[onclick="saveFinalScore()"]').classList.add('hidden');
+        } else {
+          document.getElementById('score-display').nextElementSibling.textContent = `/ ${CUSTOM_RIDDLES.length}`;
+        }
+        
+        loadRiddle(0);
+      } catch (err) {
+        console.error(err);
+        alert("Database connection error.");
       }
+    }
 
-      // 1. Inject Custom UI Text
-      document.querySelector('h1').textContent = gameData.title; // Main menu title
-      document.getElementById('menu-sub-title').textContent = gameData.subtitle;[cite: 1]
-      document.getElementById('sub-header-title').textContent = gameData.subtitle;[cite: 1]
-      
-      // 2. Set Dynamic Arrays
-      DYNAMIC_OPTIONS = gameData.options;
-      CUSTOM_RIDDLES = gameData.riddles;
-      
-      // 3. Update total possible score in UI
-      document.getElementById('score-display').nextElementSibling.textContent = `/ ${CUSTOM_RIDDLES.length}`;[cite: 1]
-      
+    function showMainMenu() {
+      document.getElementById('game-view').classList.add('hidden');
+      document.getElementById('game-view').classList.remove('flex');
+      document.getElementById('main-menu').classList.remove('hidden');
+      document.getElementById('main-menu').classList.add('flex');
+    }
+
+    function startGame() {
+      document.getElementById('main-menu').classList.add('hidden');
+      document.getElementById('main-menu').classList.remove('flex');
+      document.getElementById('game-view').classList.remove('hidden');
+      document.getElementById('game-view').classList.add('flex');
+      totalScore = 0.0;
+      if(GAME_SETTINGS.usePoints) document.getElementById('score-display').textContent = "0.0";
       loadRiddle(0);
     }
 
-    // --- CRITICAL OVERRIDES TO YOUR EXISTING FUNCTIONS ---
-
-    // Update loadRiddle to use CUSTOM_RIDDLES instead of RIDDLES
     function loadRiddle(index, preserveAttemptState = false) {
       if (index >= CUSTOM_RIDDLES.length) {
         showFinishModal();
@@ -92,55 +101,76 @@
 
       const riddleData = CUSTOM_RIDDLES[index];
 
-      // Progress UI
-      document.getElementById('riddle-progress-text').textContent = `RIDDLE ${index + 1} OF ${CUSTOM_RIDDLES.length}`;[cite: 1]
+      // Update Progress UI
+      document.getElementById('riddle-progress-text').textContent = `RIDDLE ${index + 1} OF ${CUSTOM_RIDDLES.length}`;
       const progressPct = ((index + 1) / CUSTOM_RIDDLES.length) * 100;
-      document.getElementById('progress-bar-fill').style.width = `${progressPct}%`;[cite: 1]
+      document.getElementById('progress-bar-fill').style.width = `${progressPct}%`;
       
+      document.getElementById('attempt-count-text').textContent = currentAttempts;
       updatePointsPossibleBadge();
-      document.getElementById('attempt-count-text').textContent = currentAttempts;[cite: 1]
 
-      // Set Text (Since it's custom, we map it directly without needing the i18n object for the riddle itself)
-      document.getElementById('riddle-text').textContent = `"${riddleData.riddleText}"`;[cite: 1]
-      document.getElementById('hint-text').textContent = riddleData.hintText;[cite: 1]
+      // Populate Text
+      document.getElementById('riddle-text').textContent = `"${riddleData.riddleText}"`;
+      document.getElementById('hint-text').textContent = riddleData.hintText;
 
-      const hintBox = document.getElementById('hint-box');[cite: 1]
-      hintUsed ? hintBox.classList.remove('hidden') : hintBox.classList.add('hidden');[cite: 1]
+      const hintBox = document.getElementById('hint-box');
+      hintUsed ? hintBox.classList.remove('hidden') : hintBox.classList.add('hidden');
 
-      renderOptionsGrid();
+      // Update Hint Button Text based on penalties
+      const hintBtnTxt = document.getElementById('label-reveal-hint');
+      if (GAME_SETTINGS.usePoints && GAME_SETTINGS.hintPenalty > 0) {
+        hintBtnTxt.textContent = `Need a Hint? (-${GAME_SETTINGS.hintPenalty} Pts)`;
+      } else {
+        hintBtnTxt.textContent = `Need a Hint?`;
+      }
+
+      renderOptionsGrid(riddleData.options);
     }
 
-    // Update renderOptionsGrid to use DYNAMIC_OPTIONS
-    function renderOptionsGrid() {
-      const grid = document.getElementById('options-grid');[cite: 1]
+    function renderOptionsGrid(optionsArray) {
+      const grid = document.getElementById('options-grid');
       grid.innerHTML = '';
 
-      DYNAMIC_OPTIONS.forEach(name => {
+      optionsArray.forEach(name => {
         const btn = document.createElement('button');
         btn.setAttribute('data-name', name);
         btn.onclick = () => handleGuess(name, btn);
-        
-        btn.className = `py-3.5 px-4 rounded-2xl font-bold text-base md:text-lg glass-panel hover:bg-slate-800/90 active:scale-95 transition-all duration-200 border border-slate-700/60 shadow-lg text-slate-200 hover:border-amber-500/50 hover:text-amber-300 flex items-center justify-center gap-2`;[cite: 1]
+        btn.className = `py-3.5 px-4 rounded-2xl font-bold text-base md:text-lg glass-panel hover:bg-slate-800/90 active:scale-95 transition-all duration-200 border border-slate-700/60 shadow-lg text-slate-200 hover:border-amber-500/50 hover:text-amber-300 flex items-center justify-center gap-2`;
         btn.textContent = name;
-
         grid.appendChild(btn);
       });
     }
 
-    // Update handleGuess logic to match custom schema
+    function updatePointsPossibleBadge() {
+      if (!GAME_SETTINGS.usePoints) return;
+      
+      let pts = 1.0;
+      if (hintUsed) pts -= GAME_SETTINGS.hintPenalty;
+      pts -= (currentAttempts - 1) * GAME_SETTINGS.wrongPenalty;
+      pts = Math.max(0, pts); // Prevent negative display
+
+      document.getElementById('points-possible-text').textContent = `Worth: ${pts.toFixed(1)} Points`;
+    }
+
+    function revealHint() {
+      if (hintUsed) return;
+      hintUsed = true;
+      document.getElementById('hint-box').classList.remove('hidden');
+      updatePointsPossibleBadge();
+    }
+
     function handleGuess(selectedName, btnElement) {
       if (isProcessingGuess || answeredCorrectly) return;
       isProcessingGuess = true;
 
       const currentTarget = CUSTOM_RIDDLES[currentRiddleIndex];
-      // Compare custom input string
       const isCorrect = (selectedName.toLowerCase() === currentTarget.correctAnswer.toLowerCase());
 
-      const drumOverlay = document.getElementById('drumroll-overlay');[cite: 1]
-      drumOverlay.classList.remove('hidden');[cite: 1]
+      const drumOverlay = document.getElementById('drumroll-overlay');
+      drumOverlay.classList.remove('hidden');
 
       audio.playDrumroll(1800, () => {
-        drumOverlay.classList.add('hidden');[cite: 1]
+        drumOverlay.classList.add('hidden');
 
         if (isCorrect) {
           handleCorrectAnswer(currentTarget);
@@ -150,24 +180,155 @@
       });
     }
 
-    // Update Standard Reveal to use custom schema
+    function handleWrongAnswer(btnElement) {
+      isProcessingGuess = false;
+      audio.playWrongSound();
+
+      const mainContainer = document.getElementById('main-container');
+      mainContainer.classList.add('animate-shake');
+      setTimeout(() => { mainContainer.classList.remove('animate-shake'); }, 500);
+
+      if (btnElement) {
+        btnElement.classList.remove('hover:border-amber-500/50', 'hover:text-amber-300');
+        btnElement.classList.add('bg-red-950/40', 'border-red-600/60', 'text-red-400', 'line-through', 'opacity-60', 'cursor-not-allowed');
+        btnElement.disabled = true;
+      }
+
+      currentAttempts++;
+      document.getElementById('attempt-count-text').textContent = currentAttempts;
+      updatePointsPossibleBadge();
+
+      // Update Wrong Modal Text
+      const wrongDesc = document.getElementById('wrong-modal-desc');
+      if (GAME_SETTINGS.usePoints && GAME_SETTINGS.wrongPenalty > 0) {
+        wrongDesc.textContent = `Incorrect! A ${GAME_SETTINGS.wrongPenalty} point penalty has been applied. You must keep guessing to advance.`;
+      } else {
+        wrongDesc.textContent = `Incorrect! That is not the right answer. Keep guessing!`;
+      }
+
+      document.getElementById('wrong-modal').classList.remove('hidden');
+    }
+
+    function closeWrongModal() {
+      document.getElementById('wrong-modal').classList.add('hidden');
+    }
+
+    function handleCorrectAnswer(targetRiddle) {
+      answeredCorrectly = true;
+
+      let ptsEarned = 0;
+      if (GAME_SETTINGS.usePoints) {
+        ptsEarned = 1.0;
+        if (hintUsed) ptsEarned -= GAME_SETTINGS.hintPenalty;
+        ptsEarned -= (currentAttempts - 1) * GAME_SETTINGS.wrongPenalty;
+        ptsEarned = Math.max(0, ptsEarned); // Stop points from dipping below 0 per riddle
+
+        totalScore += ptsEarned;
+        document.getElementById('score-display').textContent = totalScore.toFixed(1);
+      }
+
+      launchStandardCorrectSequence(targetRiddle, ptsEarned);
+    }
+
     function launchStandardCorrectSequence(targetRiddle, ptsEarned) {
       audio.playCorrectChime();
 
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
+      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
 
-      document.getElementById('correct-modal-emoji').textContent = targetRiddle.emoji || '🎉';[cite: 1]
-      document.getElementById('correct-student-name').textContent = targetRiddle.correctAnswer;[cite: 1]
-      document.getElementById('correct-student-title').textContent = "Correctly Guessed!"; // Fallback title[cite: 1]
-      document.getElementById('correct-modal-pts-earned').textContent = `+${ptsEarned.toFixed(1)}`;[cite: 1]
-      document.getElementById('correct-modal-total-score').textContent = totalScore.toFixed(1);[cite: 1]
+      document.getElementById('correct-modal-emoji').textContent = targetRiddle.emoji || '🎉';
+      document.getElementById('correct-student-name').textContent = targetRiddle.correctAnswer;
+      document.getElementById('correct-student-title').textContent = "Correctly Guessed!";
+      
+      if (GAME_SETTINGS.usePoints) {
+        document.getElementById('correct-modal-pts-earned').textContent = `+${ptsEarned.toFixed(1)}`;
+        document.getElementById('correct-modal-total-score').textContent = totalScore.toFixed(1);
+      }
 
-      document.getElementById('correct-modal').classList.remove('hidden');[cite: 1]
+      document.getElementById('correct-modal').classList.remove('hidden');
     }
 
-    // ... [Keep the rest of your UI transition, leaderboard, and audio functions unchanged] ...
-  </script>
+    function nextRiddle() {
+      document.getElementById('correct-modal').classList.add('hidden');
+      isProcessingGuess = false;
+      loadRiddle(currentRiddleIndex + 1);
+    }
+
+    function showFinishModal() {
+      if (GAME_SETTINGS.usePoints) {
+        document.getElementById('final-score-value').textContent = totalScore.toFixed(1);
+      }
+      document.getElementById('finish-modal').classList.remove('hidden');
+      confetti({ particleCount: 150, spread: 100, origin: { y: 0.4 } });
+    }
+
+    // Leaderboard System
+    function saveFinalScore() {
+      if (!GAME_SETTINGS.usePoints) return;
+      
+      const nameInput = document.getElementById('player-name-input');
+      const playerName = nameInput.value.trim() || 'Anonymous Player';
+
+      // Use a dynamic key so leaderboards don't mix between different custom games
+      const urlParams = new URLSearchParams(window.location.search);
+      const lbKey = 'guess_who_lb_' + urlParams.get('id');
+      
+      let leaderboard = JSON.parse(localStorage.getItem(lbKey) || '[]');
+      leaderboard.push({
+        name: playerName,
+        score: parseFloat(totalScore.toFixed(1)),
+        date: new Date().toLocaleDateString()
+      });
+
+      leaderboard.sort((a, b) => b.score - a.score);
+      leaderboard = leaderboard.slice(0, 10); 
+      localStorage.setItem(lbKey, JSON.stringify(leaderboard));
+
+      nameInput.value = '';
+      document.getElementById('finish-modal').classList.add('hidden');
+      openLeaderboard();
+    }
+
+    function openLeaderboard() {
+      const listContainer = document.getElementById('leaderboard-list');
+      listContainer.innerHTML = '';
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const lbKey = 'guess_who_lb_' + urlParams.get('id');
+      let leaderboard = JSON.parse(localStorage.getItem(lbKey) || '[]');
+
+      if (leaderboard.length === 0) {
+        listContainer.innerHTML = `<p class="text-center text-slate-500 py-6 text-sm">No scores saved yet. Play and complete the game!</p>`;
+      } else {
+        leaderboard.forEach((entry, idx) => {
+          const row = document.createElement('div');
+          row.className = `flex justify-between items-center p-3 rounded-xl ${idx === 0 ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300' : 'bg-slate-900 border border-slate-800 text-slate-300'}`;
+          row.innerHTML = `
+            <div class="flex items-center gap-3">
+              <span class="font-black text-sm w-6 text-center ${idx === 0 ? 'text-amber-400' : 'text-slate-500'}">#${idx + 1}</span>
+              <span class="font-bold text-sm">${escapeHTML(entry.name)}</span>
+            </div>
+            <div class="text-right">
+              <span class="font-black text-base ${idx === 0 ? 'text-amber-400' : 'text-emerald-400'}">${entry.score.toFixed(1)}</span>
+              <span class="text-xs text-slate-500 block">${entry.date}</span>
+            </div>
+          `;
+          listContainer.appendChild(row);
+        });
+      }
+      document.getElementById('leaderboard-modal').classList.remove('hidden');
+    }
+
+    function closeLeaderboard() {
+      document.getElementById('leaderboard-modal').classList.add('hidden');
+    }
+
+    function restartGame() {
+      document.getElementById('finish-modal').classList.add('hidden');
+      startGame();
+    }
+
+    function escapeHTML(str) {
+      return str.replace(/[&<>'"]/g, 
+        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+      );
+    }
