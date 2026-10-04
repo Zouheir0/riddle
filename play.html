@@ -16,17 +16,23 @@
       40%, 80% { transform: translateX(8px); }
     }
     .animate-shake { animation: shake 0.4s ease-in-out; }
-    .glass-panel { background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(12px); }
+    
+    @keyframes goldGlow {
+      0%, 100% { filter: drop-shadow(0 0 15px rgba(251, 191, 36, 0.8)); transform: scale(1); }
+      50% { filter: drop-shadow(0 0 30px rgba(245, 158, 11, 1)); transform: scale(1.05); }
+    }
+    .animate-gold-title { animation: goldGlow 1.5s infinite ease-in-out; }
+    
+    .glass-panel { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(16px); }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col items-center justify-center p-4">
 
-  <!-- Main Container -->
   <div id="main-container" class="w-full max-w-2xl">
     
     <!-- MAIN MENU VIEW -->
     <div id="main-menu" class="flex flex-col items-center text-center glass-panel p-8 md:p-12 rounded-3xl border border-amber-500/30 shadow-2xl">
-      <h1 class="text-4xl md:text-5xl font-black text-amber-400 mb-2">Guess Who</h1>
+      <h1 id="menu-title" class="text-4xl md:text-5xl font-black text-amber-400 mb-2">Guess Who</h1>
       <p id="menu-sub-title" class="text-slate-400 text-lg mb-8">Custom Edition</p>
       <button onclick="startGame()" class="w-full py-5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-2xl rounded-2xl shadow-xl hover:scale-105 active:scale-95 transition duration-200">
         START GAME 🎮
@@ -65,9 +71,12 @@
           <span class="text-xs text-slate-400">Attempt: <strong id="attempt-count-text" class="text-white">1</strong></span>
         </div>
         
-        <p id="riddle-text" class="text-xl md:text-2xl font-semibold text-slate-100 text-center my-6 leading-relaxed">
+        <p id="riddle-text" class="text-xl md:text-2xl font-semibold text-slate-100 text-center my-4 leading-relaxed">
           "Loading riddle..."
         </p>
+
+        <!-- Traits Container -->
+        <div id="traits-container" class="flex flex-wrap gap-2 justify-center my-3"></div>
 
         <!-- Hint Box -->
         <div id="hint-box" class="hidden mt-4 p-4 bg-amber-950/30 border border-amber-500/30 rounded-2xl text-amber-200 text-sm">
@@ -85,14 +94,17 @@
   </div>
 
   <!-- MODALS -->
-  <!-- Correct Modal -->
-  <div id="correct-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
-    <div class="glass-panel p-8 rounded-3xl border border-amber-500/50 text-center max-w-sm w-full shadow-2xl">
+  <!-- Correct Modal with Gold Animation Header -->
+  <div id="correct-modal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 z-50">
+    <div class="glass-panel p-8 rounded-3xl border border-amber-500/60 text-center max-w-sm w-full shadow-2xl">
       <div id="correct-modal-emoji" class="text-6xl mb-3">🎉</div>
-      <div id="correct-student-title" class="text-lg font-bold text-amber-400 uppercase tracking-widest mb-1">The One And Only</div>
-      <h2 id="correct-student-name" class="text-3xl font-black text-white mb-4">Zouheir</h2>
       
-      <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 mb-6 flex justify-around">
+      <!-- Custom Animated Header -->
+      <div id="correct-student-title" class="text-lg font-black text-amber-400 uppercase tracking-widest mb-1 animate-gold-title"></div>
+      
+      <h2 id="correct-student-name" class="text-3xl font-black text-white mb-4">Name</h2>
+      
+      <div class="bg-slate-900/90 p-3 rounded-xl border border-slate-800 mb-6 flex justify-around">
         <div>
           <span class="text-xs text-slate-400 block">Earned</span>
           <span id="correct-modal-pts-earned" class="text-lg font-bold text-emerald-400">+1.0</span>
@@ -104,7 +116,7 @@
         </div>
       </div>
 
-      <button onclick="nextRiddle()" class="w-full py-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-lg transition">
+      <button onclick="nextRiddle()" class="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black rounded-xl text-lg transition">
         NEXT RIDDLE ➔
       </button>
     </div>
@@ -145,7 +157,7 @@
       <p class="text-slate-300 mb-4">Final Score: <strong id="final-score-value" class="text-emerald-400 text-2xl">0.0</strong></p>
       
       <div class="mb-6">
-        <input type="text" id="player-name-input" placeholder="Enter your name for Leaderboard" class="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white text-center font-bold focus:border-amber-400 focus:outline-none mb-3">
+        <input type="text" id="player-name-input" maxlength="25" placeholder="Enter your name for Leaderboard" class="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white text-center font-bold focus:border-amber-400 focus:outline-none mb-3">
         <button onclick="saveFinalScore()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition">
           Save Score 💾
         </button>
@@ -157,7 +169,7 @@
     </div>
   </div>
 
-  <!-- AUDIO SYNTHESIS / SOUND EFFECTS -->
+  <!-- AUDIO SYNTHESIS -->
   <script>
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const audio = {
@@ -233,7 +245,6 @@
     // Dynamic Game Data
     let CUSTOM_RIDDLES = [];
     let GAME_SETTINGS = { usePoints: true, hintPenalty: 0.5, wrongPenalty: 0.5 };
-    let VICTORY_TITLE = "The One And Only";
 
     window.onload = async function() {
       showMainMenu();
@@ -259,14 +270,12 @@
           return;
         }
 
-        // Set Headers & Dynamic Victory Text
-        document.querySelector('h1').textContent = gameData.title; 
-        document.getElementById('menu-sub-title').textContent = gameData.subtitle;
-        document.getElementById('sub-header-title').textContent = gameData.subtitle;
+        document.getElementById('menu-title').textContent = escapeHTML(gameData.title); 
+        document.getElementById('menu-sub-title').textContent = escapeHTML(gameData.subtitle);
+        document.getElementById('sub-header-title').textContent = escapeHTML(gameData.subtitle);
         
         CUSTOM_RIDDLES = gameData.riddles;
         GAME_SETTINGS = gameData.settings || GAME_SETTINGS;
-        VICTORY_TITLE = gameData.victoryTitle || "The One And Only";
         
         if (!GAME_SETTINGS.usePoints) {
           document.querySelectorAll('[onclick="openLeaderboard()"]').forEach(btn => btn.classList.add('hidden'));
@@ -328,6 +337,18 @@
 
       document.getElementById('riddle-text').textContent = `"${riddleData.riddleText}"`;
       document.getElementById('hint-text').textContent = riddleData.hintText;
+
+      // Render Traits
+      const traitsContainer = document.getElementById('traits-container');
+      traitsContainer.innerHTML = '';
+      if (riddleData.traits && riddleData.traits.length > 0) {
+        riddleData.traits.forEach(trait => {
+          const badge = document.createElement('span');
+          badge.className = 'bg-indigo-950/60 border border-indigo-500/40 text-indigo-300 text-xs font-bold px-2.5 py-1 rounded-lg';
+          badge.textContent = trait;
+          traitsContainer.appendChild(badge);
+        });
+      }
 
       const hintBox = document.getElementById('hint-box');
       hintUsed ? hintBox.classList.remove('hidden') : hintBox.classList.add('hidden');
@@ -443,15 +464,19 @@
 
     function launchStandardCorrectSequence(targetRiddle, ptsEarned) {
       audio.playCorrectChime();
-
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
 
       document.getElementById('correct-modal-emoji').textContent = targetRiddle.emoji || '🎉';
       document.getElementById('correct-student-name').textContent = targetRiddle.correctAnswer;
       
-      // Inject Custom Gold Victory Title Banner
       const titleElement = document.getElementById('correct-student-title');
-      titleElement.innerHTML = `<span class="text-amber-400 font-black tracking-wide drop-shadow-md uppercase">${escapeHTML(VICTORY_TITLE)}</span>`;
+      if (targetRiddle.victoryAnim && targetRiddle.victoryAnim.enabled) {
+        titleElement.textContent = targetRiddle.victoryAnim.text;
+        titleElement.className = "text-lg font-black text-amber-400 uppercase tracking-widest mb-1 animate-gold-title";
+      } else {
+        titleElement.textContent = "Correct Answer!";
+        titleElement.className = "text-sm font-bold text-slate-400 uppercase tracking-wide mb-1";
+      }
 
       if (GAME_SETTINGS.usePoints) {
         document.getElementById('correct-modal-pts-earned').textContent = `+${ptsEarned.toFixed(1)}`;
@@ -479,7 +504,7 @@
       if (!GAME_SETTINGS.usePoints) return;
       
       const nameInput = document.getElementById('player-name-input');
-      const playerName = nameInput.value.trim() || 'Anonymous Player';
+      const playerName = sanitizeInput(nameInput.value) || 'Anonymous Player';
 
       const urlParams = new URLSearchParams(window.location.search);
       const lbKey = 'guess_who_lb_' + urlParams.get('id');
@@ -540,6 +565,7 @@
     }
 
     function escapeHTML(str) {
+      if (!str) return '';
       return str.replace(/[&<>'"]/g, tag => ({
         '&': '&amp;',
         '<': '&lt;',
@@ -547,6 +573,11 @@
         "'": '&#39;',
         '"': '&quot;'
       }[tag] || tag));
+    }
+
+    function sanitizeInput(str) {
+      if (!str) return '';
+      return str.replace(/[<>'"]/g, '').trim();
     }
   </script>
 </body>
