@@ -1,5 +1,228 @@
-// Global Application State
-    let currentLang = 'en';
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guess Who Game</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <style>
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-8px); }
+      40%, 80% { transform: translateX(8px); }
+    }
+    .animate-shake { animation: shake 0.4s ease-in-out; }
+    .glass-panel { background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(12px); }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col items-center justify-center p-4">
+
+  <!-- Main Container -->
+  <div id="main-container" class="w-full max-w-2xl">
+    
+    <!-- MAIN MENU VIEW -->
+    <div id="main-menu" class="flex flex-col items-center text-center glass-panel p-8 md:p-12 rounded-3xl border border-amber-500/30 shadow-2xl">
+      <h1 class="text-4xl md:text-5xl font-black text-amber-400 mb-2">Guess Who</h1>
+      <p id="menu-sub-title" class="text-slate-400 text-lg mb-8">Custom Edition</p>
+      <button onclick="startGame()" class="w-full py-5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-2xl rounded-2xl shadow-xl hover:scale-105 active:scale-95 transition duration-200">
+        START GAME 🎮
+      </button>
+      <button onclick="openLeaderboard()" class="w-full mt-4 py-3 bg-slate-900 hover:bg-slate-800 text-amber-400 font-bold rounded-xl border border-amber-500/30 transition">
+        🏆 View Leaderboard
+      </button>
+    </div>
+
+    <!-- GAMEPLAY VIEW -->
+    <div id="game-view" class="hidden flex-col gap-6">
+      
+      <!-- Top Header Bar -->
+      <div class="flex justify-between items-center glass-panel p-4 rounded-2xl border border-slate-800">
+        <div>
+          <span id="sub-header-title" class="text-xs text-amber-400 font-bold uppercase block">Guess Who</span>
+          <span id="riddle-progress-text" class="text-sm font-black text-slate-200">RIDDLE 1 OF 5</span>
+        </div>
+        <div class="text-right">
+          <span class="text-xs text-slate-400 font-bold uppercase block">Score</span>
+          <div class="text-xl font-black text-emerald-400">
+            <span id="score-display">0.0</span> <span class="text-xs text-slate-500 font-normal">/ 5</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Progress Bar -->
+      <div class="w-full bg-slate-900 rounded-full h-2.5 border border-slate-800 overflow-hidden">
+        <div id="progress-bar-fill" class="bg-gradient-to-r from-amber-500 to-amber-400 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+      </div>
+
+      <!-- Riddle Question Card -->
+      <div class="glass-panel p-6 md:p-8 rounded-3xl border border-slate-800 shadow-2xl relative overflow-hidden">
+        <div class="flex justify-between items-center mb-4">
+          <span id="points-possible-text" class="bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold px-3 py-1 rounded-full">Worth: 1.0 Points</span>
+          <span class="text-xs text-slate-400">Attempt: <strong id="attempt-count-text" class="text-white">1</strong></span>
+        </div>
+        
+        <p id="riddle-text" class="text-xl md:text-2xl font-semibold text-slate-100 text-center my-6 leading-relaxed">
+          "Loading riddle..."
+        </p>
+
+        <!-- Hint Box -->
+        <div id="hint-box" class="hidden mt-4 p-4 bg-amber-950/30 border border-amber-500/30 rounded-2xl text-amber-200 text-sm">
+          💡 <strong>Hint:</strong> <span id="hint-text"></span>
+        </div>
+
+        <button onclick="revealHint()" class="mt-4 text-xs text-amber-400 hover:text-amber-300 font-bold underline flex items-center gap-1 mx-auto">
+          <span id="label-reveal-hint">Need a Hint?</span>
+        </button>
+      </div>
+
+      <!-- Options Grid -->
+      <div id="options-grid" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+    </div>
+  </div>
+
+  <!-- MODALS -->
+  <!-- Correct Modal -->
+  <div id="correct-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
+    <div class="glass-panel p-8 rounded-3xl border border-amber-500/50 text-center max-w-sm w-full shadow-2xl">
+      <div id="correct-modal-emoji" class="text-6xl mb-3">🎉</div>
+      <div id="correct-student-title" class="text-lg font-bold text-amber-400 uppercase tracking-widest mb-1">The One And Only</div>
+      <h2 id="correct-student-name" class="text-3xl font-black text-white mb-4">Zouheir</h2>
+      
+      <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 mb-6 flex justify-around">
+        <div>
+          <span class="text-xs text-slate-400 block">Earned</span>
+          <span id="correct-modal-pts-earned" class="text-lg font-bold text-emerald-400">+1.0</span>
+        </div>
+        <div class="border-r border-slate-800"></div>
+        <div>
+          <span class="text-xs text-slate-400 block">Total Score</span>
+          <span id="correct-modal-total-score" class="text-lg font-bold text-amber-400">1.0</span>
+        </div>
+      </div>
+
+      <button onclick="nextRiddle()" class="w-full py-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-lg transition">
+        NEXT RIDDLE ➔
+      </button>
+    </div>
+  </div>
+
+  <!-- Wrong Modal -->
+  <div id="wrong-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
+    <div class="glass-panel p-8 rounded-3xl border border-red-500/50 text-center max-w-sm w-full shadow-2xl">
+      <div class="text-5xl mb-3">❌</div>
+      <h2 class="text-2xl font-black text-red-400 mb-2">Not Quite!</h2>
+      <p id="wrong-modal-desc" class="text-slate-300 text-sm mb-6">That is not the correct answer. Keep guessing!</p>
+      <button onclick="closeWrongModal()" class="w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition">
+        Try Again 🔄
+      </button>
+    </div>
+  </div>
+
+  <!-- Drumroll Overlay -->
+  <div id="drumroll-overlay" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center z-50">
+    <div class="text-6xl animate-bounce mb-4">🥁</div>
+    <div class="text-2xl font-black text-amber-400 tracking-wider">DRUMROLL PLEASE...</div>
+  </div>
+
+  <!-- Leaderboard Modal -->
+  <div id="leaderboard-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
+    <div class="glass-panel p-6 md:p-8 rounded-3xl border border-amber-500/30 max-w-md w-full shadow-2xl">
+      <h2 class="text-2xl font-black text-amber-400 mb-4 text-center">🏆 Leaderboard</h2>
+      <div id="leaderboard-list" class="space-y-2 mb-6 max-h-60 overflow-y-auto"></div>
+      <button onclick="closeLeaderboard()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl">Close</button>
+    </div>
+  </div>
+
+  <!-- Finish Modal -->
+  <div id="finish-modal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-50">
+    <div class="glass-panel p-8 rounded-3xl border border-amber-500/50 text-center max-w-md w-full shadow-2xl">
+      <div class="text-6xl mb-3">👑</div>
+      <h2 class="text-3xl font-black text-amber-400 mb-2">Game Complete!</h2>
+      <p class="text-slate-300 mb-4">Final Score: <strong id="final-score-value" class="text-emerald-400 text-2xl">0.0</strong></p>
+      
+      <div class="mb-6">
+        <input type="text" id="player-name-input" placeholder="Enter your name for Leaderboard" class="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white text-center font-bold focus:border-amber-400 focus:outline-none mb-3">
+        <button onclick="saveFinalScore()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition">
+          Save Score 💾
+        </button>
+      </div>
+
+      <button onclick="restartGame()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-amber-400 font-bold rounded-xl">
+        Play Again 🔄
+      </button>
+    </div>
+  </div>
+
+  <!-- AUDIO SYNTHESIS / SOUND EFFECTS -->
+  <script>
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const audio = {
+      playWrongSound() {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 0.3);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+      },
+      playCorrectChime() {
+        const notes = [523.25, 659.25, 783.99, 1046.50];
+        notes.forEach((freq, i) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.08);
+          gain.gain.setValueAtTime(0.2, audioCtx.currentTime + i * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + i * 0.08 + 0.4);
+          osc.connect(gain); gain.connect(audioCtx.destination);
+          osc.start(audioCtx.currentTime + i * 0.08);
+          osc.stop(audioCtx.currentTime + i * 0.08 + 0.4);
+        });
+      },
+      playDrumroll(durationMs, callback) {
+        let elapsed = 0;
+        const interval = setInterval(() => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(80 + Math.random() * 40, audioCtx.currentTime);
+          gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+          osc.connect(gain); gain.connect(audioCtx.destination);
+          osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+          elapsed += 60;
+          if (elapsed >= durationMs) {
+            clearInterval(interval);
+            if (callback) callback();
+          }
+        }, 60);
+      }
+    };
+  </script>
+
+  <!-- GAME LOGIC SCRIPT -->
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCph3KRkKFYMdPlwUviavHaZ9QngiKWGaU",
+      authDomain: "riddle-701ae.firebaseapp.com",
+      databaseURL: "https://riddle-701ae-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "riddle-701ae",
+      storageBucket: "riddle-701ae.firebasestorage.app",
+      messagingSenderId: "748642861259",
+      appId: "1:748642861259:web:c016f007988340fc165b4e",
+      measurementId: "G-SPXP0W5NDY"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // Global State
     let currentRiddleIndex = 0;
     let currentAttempts = 1;
     let hintUsed = false;
@@ -7,9 +230,10 @@
     let isProcessingGuess = false;
     let answeredCorrectly = false;
     
-    // Dynamic Custom Data
+    // Dynamic Game Data
     let CUSTOM_RIDDLES = [];
     let GAME_SETTINGS = { usePoints: true, hintPenalty: 0.5, wrongPenalty: 0.5 };
+    let VICTORY_TITLE = "The One And Only";
 
     window.onload = async function() {
       showMainMenu();
@@ -35,27 +259,21 @@
           return;
         }
 
-        // Apply Text Defaults
+        // Set Headers & Dynamic Victory Text
         document.querySelector('h1').textContent = gameData.title; 
         document.getElementById('menu-sub-title').textContent = gameData.subtitle;
         document.getElementById('sub-header-title').textContent = gameData.subtitle;
         
-        // Setup State Arrays
         CUSTOM_RIDDLES = gameData.riddles;
         GAME_SETTINGS = gameData.settings || GAME_SETTINGS;
+        VICTORY_TITLE = gameData.victoryTitle || "The One And Only";
         
-        // Handle Points System UI Toggles
         if (!GAME_SETTINGS.usePoints) {
-          // Hide Leaderboard and Points based UI
           document.querySelectorAll('[onclick="openLeaderboard()"]').forEach(btn => btn.classList.add('hidden'));
           document.getElementById('score-display').parentElement.classList.add('hidden');
           document.getElementById('points-possible-text').classList.add('hidden');
-          
-          // Hide score info inside modals by finding their specific sections
           document.getElementById('correct-modal-pts-earned').parentElement.parentElement.classList.add('hidden');
           document.getElementById('final-score-value').parentElement.classList.add('hidden');
-          
-          // Hide Leaderboard submission in Finish modal
           document.getElementById('player-name-input').parentElement.classList.add('hidden');
           document.querySelector('button[onclick="saveFinalScore()"]').classList.add('hidden');
         } else {
@@ -101,7 +319,6 @@
 
       const riddleData = CUSTOM_RIDDLES[index];
 
-      // Update Progress UI
       document.getElementById('riddle-progress-text').textContent = `RIDDLE ${index + 1} OF ${CUSTOM_RIDDLES.length}`;
       const progressPct = ((index + 1) / CUSTOM_RIDDLES.length) * 100;
       document.getElementById('progress-bar-fill').style.width = `${progressPct}%`;
@@ -109,14 +326,12 @@
       document.getElementById('attempt-count-text').textContent = currentAttempts;
       updatePointsPossibleBadge();
 
-      // Populate Text
       document.getElementById('riddle-text').textContent = `"${riddleData.riddleText}"`;
       document.getElementById('hint-text').textContent = riddleData.hintText;
 
       const hintBox = document.getElementById('hint-box');
       hintUsed ? hintBox.classList.remove('hidden') : hintBox.classList.add('hidden');
 
-      // Update Hint Button Text based on penalties
       const hintBtnTxt = document.getElementById('label-reveal-hint');
       if (GAME_SETTINGS.usePoints && GAME_SETTINGS.hintPenalty > 0) {
         hintBtnTxt.textContent = `Need a Hint? (-${GAME_SETTINGS.hintPenalty} Pts)`;
@@ -143,12 +358,10 @@
 
     function updatePointsPossibleBadge() {
       if (!GAME_SETTINGS.usePoints) return;
-      
       let pts = 1.0;
       if (hintUsed) pts -= GAME_SETTINGS.hintPenalty;
       pts -= (currentAttempts - 1) * GAME_SETTINGS.wrongPenalty;
-      pts = Math.max(0, pts); // Prevent negative display
-
+      pts = Math.max(0, pts);
       document.getElementById('points-possible-text').textContent = `Worth: ${pts.toFixed(1)} Points`;
     }
 
@@ -171,7 +384,6 @@
 
       audio.playDrumroll(1800, () => {
         drumOverlay.classList.add('hidden');
-
         if (isCorrect) {
           handleCorrectAnswer(currentTarget);
         } else {
@@ -198,10 +410,9 @@
       document.getElementById('attempt-count-text').textContent = currentAttempts;
       updatePointsPossibleBadge();
 
-      // Update Wrong Modal Text
       const wrongDesc = document.getElementById('wrong-modal-desc');
       if (GAME_SETTINGS.usePoints && GAME_SETTINGS.wrongPenalty > 0) {
-        wrongDesc.textContent = `Incorrect! A ${GAME_SETTINGS.wrongPenalty} point penalty has been applied. You must keep guessing to advance.`;
+        wrongDesc.textContent = `Incorrect! A ${GAME_SETTINGS.wrongPenalty} point penalty has been applied. Keep guessing!`;
       } else {
         wrongDesc.textContent = `Incorrect! That is not the right answer. Keep guessing!`;
       }
@@ -221,7 +432,7 @@
         ptsEarned = 1.0;
         if (hintUsed) ptsEarned -= GAME_SETTINGS.hintPenalty;
         ptsEarned -= (currentAttempts - 1) * GAME_SETTINGS.wrongPenalty;
-        ptsEarned = Math.max(0, ptsEarned); // Stop points from dipping below 0 per riddle
+        ptsEarned = Math.max(0, ptsEarned);
 
         totalScore += ptsEarned;
         document.getElementById('score-display').textContent = totalScore.toFixed(1);
@@ -237,8 +448,11 @@
 
       document.getElementById('correct-modal-emoji').textContent = targetRiddle.emoji || '🎉';
       document.getElementById('correct-student-name').textContent = targetRiddle.correctAnswer;
-      document.getElementById('correct-student-title').textContent = "Correctly Guessed!";
       
+      // Inject Custom Gold Victory Title Banner
+      const titleElement = document.getElementById('correct-student-title');
+      titleElement.innerHTML = `<span class="text-amber-400 font-black tracking-wide drop-shadow-md uppercase">${escapeHTML(VICTORY_TITLE)}</span>`;
+
       if (GAME_SETTINGS.usePoints) {
         document.getElementById('correct-modal-pts-earned').textContent = `+${ptsEarned.toFixed(1)}`;
         document.getElementById('correct-modal-total-score').textContent = totalScore.toFixed(1);
@@ -261,14 +475,12 @@
       confetti({ particleCount: 150, spread: 100, origin: { y: 0.4 } });
     }
 
-    // Leaderboard System
     function saveFinalScore() {
       if (!GAME_SETTINGS.usePoints) return;
       
       const nameInput = document.getElementById('player-name-input');
       const playerName = nameInput.value.trim() || 'Anonymous Player';
 
-      // Use a dynamic key so leaderboards don't mix between different custom games
       const urlParams = new URLSearchParams(window.location.search);
       const lbKey = 'guess_who_lb_' + urlParams.get('id');
       
@@ -328,7 +540,14 @@
     }
 
     function escapeHTML(str) {
-      return str.replace(/[&<>'"]/g, 
-        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
-      );
+      return str.replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;'
+      }[tag] || tag));
     }
+  </script>
+</body>
+</html>
