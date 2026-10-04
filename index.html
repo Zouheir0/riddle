@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <title>Create Your Guess Who Game</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans p-8">
+  <div class="max-w-3xl mx-auto glass-panel p-8 rounded-3xl border border-amber-500/30">
+    <h1 class="text-4xl font-black text-amber-400 mb-6">Game Builder</h1>
+    
+    <!-- Game Meta Data -->
+    <div class="space-y-4 mb-8">
+      <input type="text" id="game-title" placeholder="Game Title (e.g., Guess the Developer)" class="w-full p-3 bg-slate-900 rounded-xl border border-slate-700 text-white">
+      <input type="text" id="game-subtitle" placeholder="Subtitle" class="w-full p-3 bg-slate-900 rounded-xl border border-slate-700 text-white">
+      <input type="text" id="global-options" placeholder="Comma-separated list of ALL possible answer options (e.g., Zouheir, Mahmoud, Amar)" class="w-full p-3 bg-slate-900 rounded-xl border border-slate-700 text-white">
+    </div>
+
+    <!-- Riddles Container -->
+    <div id="riddles-container" class="space-y-6 mb-8">
+      <!-- Riddle blocks generated here -->
+    </div>
+
+    <button onclick="addRiddleBlock()" class="w-full py-3 mb-4 bg-slate-800 rounded-xl text-indigo-300 font-bold border border-slate-700">+ Add Another Riddle</button>
+    <button onclick="generateGame()" class="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black text-xl rounded-xl">Generate Unique Link 🚀</button>
+
+    <!-- Output Link -->
+    <div id="link-output" class="hidden mt-6 p-4 bg-emerald-900/40 border border-emerald-500 rounded-xl text-center text-emerald-300 font-bold"></div>
+  </div>
+
+  <script>
+    // 1. Initialize Firebase (Replace with YOUR config)
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT.firebaseio.com",
+      projectId: "YOUR_PROJECT",
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // 2. Form Logic
+    function addRiddleBlock() {
+      const container = document.getElementById('riddles-container');
+      const index = container.children.length + 1;
+      const html = `
+        <div class="p-4 bg-slate-900 border border-slate-700 rounded-xl riddle-block">
+          <h3 class="font-bold text-amber-400 mb-2">Riddle ${index}</h3>
+          <input type="text" class="r-question w-full p-2 mb-2 bg-slate-800 rounded text-white" placeholder="The Riddle/Question">
+          <input type="text" class="r-hint w-full p-2 mb-2 bg-slate-800 rounded text-white" placeholder="The Hint">
+          <input type="text" class="r-correct w-full p-2 mb-2 bg-slate-800 rounded text-white" placeholder="Correct Answer (Exact Match to options)">
+          <input type="text" class="r-emoji w-full p-2 bg-slate-800 rounded text-white" placeholder="Winning Emoji (e.g., 💻)">
+        </div>`;
+      container.insertAdjacentHTML('beforeend', html);
+    }
+
+    addRiddleBlock(); // Init with one block
+
+    // 3. Save to Firebase & Generate Link
+    async function generateGame() {
+      const title = document.getElementById('game-title').value;
+      const subtitle = document.getElementById('game-subtitle').value;
+      const optionsStr = document.getElementById('global-options').value;
+      const optionsArray = optionsStr.split(',').map(s => s.trim());
+
+      const blocks = document.querySelectorAll('.riddle-block');
+      const customRiddles = [];
+
+      blocks.forEach(block => {
+        customRiddles.push({
+          riddleText: block.querySelector('.r-question').value,
+          hintText: block.querySelector('.r-hint').value,
+          correctAnswer: block.querySelector('.r-correct').value,
+          emoji: block.querySelector('.r-emoji').value
+        });
+      });
+
+      const gameData = {
+        title: title,
+        subtitle: subtitle,
+        options: optionsArray,
+        riddles: customRiddles,
+        createdAt: Date.now()
+      };
+
+      // Push to Firebase Realtime Database
+      const newGameRef = db.ref('custom_games').push();
+      await newGameRef.set(gameData);
+
+      // Construct the shareable URL
+      const uniqueId = newGameRef.key;
+      const baseURL = window.location.href.replace('index.html', ''); 
+      const shareableLink = `${baseURL}play.html?id=${uniqueId}`;
+      
+      const linkDiv = document.getElementById('link-output');
+      linkDiv.innerHTML = `Success! Share this link to let people play:<br><a href="${shareableLink}" class="text-amber-400 underline mt-2 inline-block">${shareableLink}</a>`;
+      linkDiv.classList.remove('hidden');
+    }
+  </script>
+</body>
+</html>

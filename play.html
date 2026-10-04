@@ -1,0 +1,173 @@
+<!-- Add Firebase SDKs to the <head> of play.html as well -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+  <script>
+    // ... [Keep your AudioEngine class exactly as is] ...
+
+    // Initialize Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyCph3KRkKFYMdPlwUviavHaZ9QngiKWGaU",
+  authDomain: "riddle-701ae.firebaseapp.com",
+  databaseURL: "https://riddle-701ae-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "riddle-701ae",
+  storageBucket: "riddle-701ae.firebasestorage.app",
+  messagingSenderId: "748642861259",
+  appId: "1:748642861259:web:c016f007988340fc165b4e",
+  measurementId: "G-SPXP0W5NDY"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // Global Application State
+    let currentLang = 'en';
+    let currentRiddleIndex = 0;
+    let currentAttempts = 1;
+    let hintUsed = false;
+    let totalScore = 0.0;
+    let isProcessingGuess = false;
+    let answeredCorrectly = false;
+    let isGameActive = false;
+    
+    // Dynamic Data Variables (previously hardcoded)
+    let CUSTOM_RIDDLES = [];
+    let DYNAMIC_OPTIONS = [];
+
+    // Initialization Sequence
+    window.onload = async function() {
+      showMainMenu();
+      await fetchCustomGameData();
+      updateI18nUI();
+    };
+
+    async function fetchCustomGameData() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const gameId = urlParams.get('id');
+
+      if (!gameId) {
+        alert("No game ID found in URL. Redirecting to builder...");
+        window.location.href = 'index.html';
+        return;
+      }
+
+      // Fetch from Firebase
+      const snapshot = await db.ref('custom_games/' + gameId).once('value');
+      const gameData = snapshot.val();
+
+      if (!gameData) {
+        alert("Game not found or deleted!");
+        return;
+      }
+
+      // 1. Inject Custom UI Text
+      document.querySelector('h1').textContent = gameData.title; // Main menu title
+      document.getElementById('menu-sub-title').textContent = gameData.subtitle;[cite: 1]
+      document.getElementById('sub-header-title').textContent = gameData.subtitle;[cite: 1]
+      
+      // 2. Set Dynamic Arrays
+      DYNAMIC_OPTIONS = gameData.options;
+      CUSTOM_RIDDLES = gameData.riddles;
+      
+      // 3. Update total possible score in UI
+      document.getElementById('score-display').nextElementSibling.textContent = `/ ${CUSTOM_RIDDLES.length}`;[cite: 1]
+      
+      loadRiddle(0);
+    }
+
+    // --- CRITICAL OVERRIDES TO YOUR EXISTING FUNCTIONS ---
+
+    // Update loadRiddle to use CUSTOM_RIDDLES instead of RIDDLES
+    function loadRiddle(index, preserveAttemptState = false) {
+      if (index >= CUSTOM_RIDDLES.length) {
+        showFinishModal();
+        return;
+      }
+
+      currentRiddleIndex = index;
+      if (!preserveAttemptState) {
+        currentAttempts = 1;
+        hintUsed = false;
+        answeredCorrectly = false;
+      }
+
+      const riddleData = CUSTOM_RIDDLES[index];
+
+      // Progress UI
+      document.getElementById('riddle-progress-text').textContent = `RIDDLE ${index + 1} OF ${CUSTOM_RIDDLES.length}`;[cite: 1]
+      const progressPct = ((index + 1) / CUSTOM_RIDDLES.length) * 100;
+      document.getElementById('progress-bar-fill').style.width = `${progressPct}%`;[cite: 1]
+      
+      updatePointsPossibleBadge();
+      document.getElementById('attempt-count-text').textContent = currentAttempts;[cite: 1]
+
+      // Set Text (Since it's custom, we map it directly without needing the i18n object for the riddle itself)
+      document.getElementById('riddle-text').textContent = `"${riddleData.riddleText}"`;[cite: 1]
+      document.getElementById('hint-text').textContent = riddleData.hintText;[cite: 1]
+
+      const hintBox = document.getElementById('hint-box');[cite: 1]
+      hintUsed ? hintBox.classList.remove('hidden') : hintBox.classList.add('hidden');[cite: 1]
+
+      renderOptionsGrid();
+    }
+
+    // Update renderOptionsGrid to use DYNAMIC_OPTIONS
+    function renderOptionsGrid() {
+      const grid = document.getElementById('options-grid');[cite: 1]
+      grid.innerHTML = '';
+
+      DYNAMIC_OPTIONS.forEach(name => {
+        const btn = document.createElement('button');
+        btn.setAttribute('data-name', name);
+        btn.onclick = () => handleGuess(name, btn);
+        
+        btn.className = `py-3.5 px-4 rounded-2xl font-bold text-base md:text-lg glass-panel hover:bg-slate-800/90 active:scale-95 transition-all duration-200 border border-slate-700/60 shadow-lg text-slate-200 hover:border-amber-500/50 hover:text-amber-300 flex items-center justify-center gap-2`;[cite: 1]
+        btn.textContent = name;
+
+        grid.appendChild(btn);
+      });
+    }
+
+    // Update handleGuess logic to match custom schema
+    function handleGuess(selectedName, btnElement) {
+      if (isProcessingGuess || answeredCorrectly) return;
+      isProcessingGuess = true;
+
+      const currentTarget = CUSTOM_RIDDLES[currentRiddleIndex];
+      // Compare custom input string
+      const isCorrect = (selectedName.toLowerCase() === currentTarget.correctAnswer.toLowerCase());
+
+      const drumOverlay = document.getElementById('drumroll-overlay');[cite: 1]
+      drumOverlay.classList.remove('hidden');[cite: 1]
+
+      audio.playDrumroll(1800, () => {
+        drumOverlay.classList.add('hidden');[cite: 1]
+
+        if (isCorrect) {
+          handleCorrectAnswer(currentTarget);
+        } else {
+          handleWrongAnswer(btnElement);
+        }
+      });
+    }
+
+    // Update Standard Reveal to use custom schema
+    function launchStandardCorrectSequence(targetRiddle, ptsEarned) {
+      audio.playCorrectChime();
+
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+
+      document.getElementById('correct-modal-emoji').textContent = targetRiddle.emoji || '🎉';[cite: 1]
+      document.getElementById('correct-student-name').textContent = targetRiddle.correctAnswer;[cite: 1]
+      document.getElementById('correct-student-title').textContent = "Correctly Guessed!"; // Fallback title[cite: 1]
+      document.getElementById('correct-modal-pts-earned').textContent = `+${ptsEarned.toFixed(1)}`;[cite: 1]
+      document.getElementById('correct-modal-total-score').textContent = totalScore.toFixed(1);[cite: 1]
+
+      document.getElementById('correct-modal').classList.remove('hidden');[cite: 1]
+    }
+
+    // ... [Keep the rest of your UI transition, leaderboard, and audio functions unchanged] ...
+  </script>
