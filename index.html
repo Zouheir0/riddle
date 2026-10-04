@@ -3,34 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Create Your Custom Guess Who</title>
+  <title>Guess Who - Ultimate Game Builder</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans p-4 md:p-8">
-  <div class="max-w-4xl mx-auto glass-panel p-6 md:p-10 rounded-3xl border border-amber-500/30 bg-slate-900/50 shadow-2xl">
-    <h1 class="text-4xl font-black text-amber-400 mb-2">Game Builder</h1>
-    <p class="text-slate-400 mb-8">Design your own custom Guess Who game and generate a shareable link.</p>
+  <div class="max-w-4xl mx-auto p-6 md:p-10 rounded-3xl border border-amber-500/30 bg-slate-900/60 backdrop-blur-xl shadow-2xl">
+    <h1 class="text-4xl font-black text-amber-400 mb-2">Guess Who - Game Builder 🛠️</h1>
+    <p class="text-slate-400 mb-8">Build custom riddles, set traits, enable custom victory titles, and generate a secure shareable link.</p>
     
-    <!-- Game Meta Data & Settings -->
-    <div class="space-y-6 mb-8 p-6 bg-slate-900 rounded-2xl border border-slate-700 shadow-xl">
-      <h2 class="text-xl font-bold text-white mb-2">1. Main Information & Rules</h2>
+    <!-- Game Meta Data & Rules -->
+    <div class="space-y-6 mb-8 p-6 bg-slate-900 rounded-2xl border border-slate-800 shadow-xl">
+      <h2 class="text-xl font-bold text-white mb-2">1. Game Information & Points</h2>
       
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <input type="text" id="game-title" placeholder="Game Title (e.g., Guess the Developer)" class="p-3 bg-slate-800 rounded-xl border border-slate-700 text-white focus:border-amber-400 focus:outline-none transition">
-        <input type="text" id="game-subtitle" placeholder="Subtitle (e.g., Grade 9 Edition)" class="p-3 bg-slate-800 rounded-xl border border-slate-700 text-white focus:border-amber-400 focus:outline-none transition">
+        <input type="text" id="game-title" maxlength="60" placeholder="Game Title (e.g., Guess the Developer)" class="p-3 bg-slate-800 rounded-xl border border-slate-700 text-white focus:border-amber-400 focus:outline-none transition">
+        <input type="text" id="game-subtitle" maxlength="60" placeholder="Subtitle (e.g., Class of 2026)" class="p-3 bg-slate-800 rounded-xl border border-slate-700 text-white focus:border-amber-400 focus:outline-none transition">
       </div>
 
-      <!-- Victory Animation Customization -->
-      <div>
-        <label class="text-xs text-amber-400 uppercase font-bold mb-1 block">Custom Correct Answer Header / Gold Title</label>
-        <input type="text" id="game-victory-title" placeholder="e.g., The One And Only or You Are CORRECT!" value="The One And Only" class="w-full p-3 bg-slate-800 rounded-xl border border-amber-500/50 text-amber-300 font-bold focus:border-amber-400 focus:outline-none transition">
-        <p class="text-xs text-slate-500 mt-1">This animated title will display in shining gold above the correct answer when a player wins a riddle.</p>
-      </div>
-
-      <div class="pt-4 border-t border-slate-700 mt-4">
+      <div class="pt-4 border-t border-slate-800">
         <label class="flex items-center gap-3 text-white font-bold cursor-pointer mb-4">
           <input type="checkbox" id="setting-points" checked class="w-5 h-5 accent-amber-500 rounded">
           Enable Points System & Leaderboard
@@ -38,11 +31,11 @@
         
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="text-xs text-slate-400 uppercase font-bold mb-1 block">Hint Penalty (Points deducted)</label>
+            <label class="text-xs text-slate-400 uppercase font-bold mb-1 block">Hint Penalty (Points)</label>
             <input type="number" step="0.1" id="setting-hint-penalty" value="0.5" class="w-full p-3 bg-slate-800 rounded-xl border border-slate-700 text-white focus:border-amber-400">
           </div>
           <div>
-            <label class="text-xs text-slate-400 uppercase font-bold mb-1 block">Wrong Guess Penalty (Points deducted)</label>
+            <label class="text-xs text-slate-400 uppercase font-bold mb-1 block">Wrong Guess Penalty (Points)</label>
             <input type="number" step="0.1" id="setting-wrong-penalty" value="0.5" class="w-full p-3 bg-slate-800 rounded-xl border border-slate-700 text-white focus:border-amber-400">
           </div>
         </div>
@@ -58,12 +51,12 @@
         + Add Another Riddle
       </button>
       <button id="generate-btn" onclick="generateGame()" class="flex-1 py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xl rounded-xl shadow-lg transition">
-        Generate Unique Link 🚀
+        Generate Secure Link 🚀
       </button>
     </div>
 
     <!-- Output Link -->
-    <div id="link-output" class="hidden p-6 bg-emerald-900/30 border border-emerald-500/50 rounded-2xl text-center shadow-xl"></div>
+    <div id="link-output" class="hidden p-6 bg-emerald-950/40 border border-emerald-500/50 rounded-2xl text-center shadow-xl"></div>
   </div>
 
   <script>
@@ -80,21 +73,66 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
+    function updateCorrectDropdown(blockElement) {
+      const optionsInput = blockElement.querySelector('.r-options').value;
+      const selectElement = blockElement.querySelector('.r-correct');
+      const currentSelected = selectElement.value;
+      
+      const optionsList = optionsInput.split(',').map(s => s.trim()).filter(s => s.length > 0);
+      selectElement.innerHTML = '';
+
+      if (optionsList.length === 0) {
+        selectElement.innerHTML = `<option value="">-- Enter options above first --</option>`;
+        return;
+      }
+
+      optionsList.forEach(opt => {
+        const optionNode = document.createElement('option');
+        optionNode.value = opt;
+        optionNode.textContent = opt;
+        if (opt === currentSelected) optionNode.selected = true;
+        selectElement.appendChild(optionNode);
+      });
+    }
+
     function addRiddleBlock() {
       const container = document.getElementById('riddles-container');
       const index = container.children.length + 1;
+      const blockId = 'riddle-block-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);
+
       const html = `
-        <div class="p-5 bg-slate-900 border border-slate-700 rounded-2xl riddle-block shadow-md relative">
+        <div id="${blockId}" class="p-5 bg-slate-900 border border-slate-800 rounded-2xl riddle-block shadow-md relative">
           <div class="flex justify-between items-center mb-4">
-            <h3 class="font-black text-lg text-amber-400">Riddle ${index}</h3>
-            ${index > 1 ? `<button onclick="this.parentElement.parentElement.remove()" class="text-red-400 hover:text-red-300 text-sm font-bold bg-red-900/30 px-3 py-1 rounded-lg">Remove ✕</button>` : ''}
+            <h3 class="font-black text-lg text-amber-400">Riddle #${index}</h3>
+            ${index > 1 ? `<button onclick="document.getElementById('${blockId}').remove()" class="text-red-400 hover:text-red-300 text-sm font-bold bg-red-950/40 border border-red-800/50 px-3 py-1 rounded-lg">Remove ✕</button>` : ''}
           </div>
-          <input type="text" class="r-question w-full p-3 mb-3 bg-slate-800 rounded-xl text-white border border-slate-700 focus:border-amber-400 focus:outline-none" placeholder="The Riddle / Question">
-          <input type="text" class="r-hint w-full p-3 mb-3 bg-slate-800 rounded-xl text-white border border-slate-700 focus:border-amber-400 focus:outline-none" placeholder="The Hint">
-          <input type="text" class="r-options w-full p-3 mb-3 bg-slate-800 rounded-xl text-white border border-slate-700 focus:border-amber-400 focus:outline-none" placeholder="Options for THIS riddle (Comma separated: Option 1, Option 2, Option 3)">
-          <div class="grid grid-cols-2 gap-3">
-            <input type="text" class="r-correct w-full p-3 bg-slate-800 rounded-xl text-white border border-slate-700 focus:border-amber-400 focus:outline-none" placeholder="Correct Answer (Exact match to one option)">
-            <input type="text" class="r-emoji w-full p-3 bg-slate-800 rounded-xl text-white border border-slate-700 focus:border-amber-400 focus:outline-none" placeholder="Winning Emoji (e.g., 👑)">
+          
+          <input type="text" maxlength="200" class="r-question w-full p-3 mb-3 bg-slate-800 rounded-xl text-white border border-slate-700 focus:border-amber-400 focus:outline-none" placeholder="The Riddle / Question">
+          <input type="text" maxlength="150" class="r-hint w-full p-3 mb-3 bg-slate-800 rounded-xl text-white border border-slate-700 focus:border-amber-400 focus:outline-none" placeholder="The Hint">
+          <input type="text" maxlength="200" class="r-traits w-full p-3 mb-3 bg-slate-800 rounded-xl text-indigo-300 border border-slate-700 focus:border-indigo-400 focus:outline-none" placeholder="Traits / Characteristics (e.g. Wears Glasses, Python Coder, Friendly)">
+          
+          <input type="text" maxlength="300" oninput="updateCorrectDropdown(this.parentElement)" class="r-options w-full p-3 mb-3 bg-slate-800 rounded-xl text-white border border-slate-700 focus:border-amber-400 focus:outline-none" placeholder="Options for THIS riddle (Comma separated: Option A, Option B, Option C)">
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+            <div>
+              <label class="text-xs text-amber-400 font-bold mb-1 block">Correct Answer (Select from options)</label>
+              <select class="r-correct w-full p-3 bg-slate-800 rounded-xl text-white border border-amber-500/50 font-bold focus:border-amber-400 focus:outline-none">
+                <option value="">-- Enter options above first --</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs text-slate-400 font-bold mb-1 block">Winning Emoji</label>
+              <input type="text" maxlength="10" class="r-emoji w-full p-3 bg-slate-800 rounded-xl text-white border border-slate-700 focus:border-amber-400 focus:outline-none" placeholder="Winning Emoji (e.g., 👑)">
+            </div>
+          </div>
+
+          <!-- Per-Riddle Animated Gold Title Settings -->
+          <div class="p-4 bg-amber-950/20 border border-amber-500/30 rounded-xl">
+            <label class="flex items-center gap-2 text-xs font-bold text-amber-400 mb-2 cursor-pointer">
+              <input type="checkbox" class="r-anim-enable accent-amber-500 w-4 h-4" checked>
+              Enable Special Gold Victory Animation Header
+            </label>
+            <input type="text" maxlength="60" class="r-anim-text w-full p-2.5 bg-slate-800 text-amber-300 font-bold rounded-lg border border-amber-500/40 text-sm focus:border-amber-400 focus:outline-none" placeholder="e.g., The One And Only Zouheir or You Are CORRECT!" value="The One And Only Zouheir">
           </div>
         </div>`;
       container.insertAdjacentHTML('beforeend', html);
@@ -104,36 +142,55 @@
 
     async function generateGame() {
       const btn = document.getElementById('generate-btn');
-      btn.textContent = "Generating... ⏳";
+      btn.textContent = "Securing & Creating... ⏳";
       btn.disabled = true;
 
       try {
-        const title = document.getElementById('game-title').value || "Guess Who";
-        const subtitle = document.getElementById('game-subtitle').value || "Custom Edition";
-        const victoryTitle = document.getElementById('game-victory-title').value || "The One And Only";
+        const title = sanitizeInput(document.getElementById('game-title').value) || "Guess Who";
+        const subtitle = sanitizeInput(document.getElementById('game-subtitle').value) || "Custom Edition";
         
         const usePoints = document.getElementById('setting-points').checked;
-        const hintPenalty = parseFloat(document.getElementById('setting-hint-penalty').value) || 0;
-        const wrongPenalty = parseFloat(document.getElementById('setting-wrong-penalty').value) || 0;
+        const hintPenalty = Math.max(0, parseFloat(document.getElementById('setting-hint-penalty').value) || 0);
+        const wrongPenalty = Math.max(0, parseFloat(document.getElementById('setting-wrong-penalty').value) || 0);
 
         const blocks = document.querySelectorAll('.riddle-block');
+        if (blocks.length === 0) throw new Error("Please add at least one riddle.");
+
         const customRiddles = [];
 
-        blocks.forEach(block => {
+        blocks.forEach((block, idx) => {
+          const riddleText = sanitizeInput(block.querySelector('.r-question').value);
+          const hintText = sanitizeInput(block.querySelector('.r-hint').value);
+          const traitsText = sanitizeInput(block.querySelector('.r-traits').value);
           const rawOptions = block.querySelector('.r-options').value;
+          const options = rawOptions.split(',').map(s => sanitizeInput(s.trim())).filter(s => s !== "");
+          const correctAnswer = sanitizeInput(block.querySelector('.r-correct').value);
+          const emoji = sanitizeInput(block.querySelector('.r-emoji').value) || '🎉';
+          
+          const animEnable = block.querySelector('.r-anim-enable').checked;
+          const animText = sanitizeInput(block.querySelector('.r-anim-text').value) || "The One And Only Zouheir";
+
+          if (!riddleText) throw new Error(`Riddle #${idx + 1} is missing a question.`);
+          if (options.length < 2) throw new Error(`Riddle #${idx + 1} needs at least 2 options.`);
+          if (!correctAnswer) throw new Error(`Riddle #${idx + 1} does not have a correct answer selected.`);
+
           customRiddles.push({
-            riddleText: block.querySelector('.r-question').value,
-            hintText: block.querySelector('.r-hint').value,
-            options: rawOptions.split(',').map(s => s.trim()).filter(s => s !== ""),
-            correctAnswer: block.querySelector('.r-correct').value.trim(),
-            emoji: block.querySelector('.r-emoji').value || '🎉'
+            riddleText,
+            hintText,
+            traits: traitsText.split(',').map(t => t.trim()).filter(t => t.length > 0),
+            options,
+            correctAnswer,
+            emoji,
+            victoryAnim: {
+              enabled: animEnable,
+              text: animText
+            }
           });
         });
 
         const gameData = {
-          title: title,
-          subtitle: subtitle,
-          victoryTitle: victoryTitle,
+          title,
+          subtitle,
           settings: { usePoints, hintPenalty, wrongPenalty },
           riddles: customRiddles,
           createdAt: Date.now()
@@ -148,18 +205,23 @@
         
         const linkDiv = document.getElementById('link-output');
         linkDiv.innerHTML = `
-          <h3 class="text-emerald-400 font-black text-2xl mb-2">Game Created Successfully!</h3>
+          <h3 class="text-emerald-400 font-black text-2xl mb-2">Game Created & Secured! 🛡️</h3>
           <p class="text-slate-300 text-sm mb-4">Share this link with your friends to let them play:</p>
           <a href="${shareableLink}" target="_blank" class="block w-full p-4 bg-slate-900 border border-emerald-500/30 rounded-xl text-emerald-300 font-bold break-all hover:bg-slate-800 transition">${shareableLink}</a>
         `;
         linkDiv.classList.remove('hidden');
 
       } catch (error) {
-        alert("Failed to create game. Error: " + error.message);
+        alert(error.message);
       } finally {
-        btn.textContent = "Generate Unique Link 🚀";
+        btn.textContent = "Generate Secure Link 🚀";
         btn.disabled = false;
       }
+    }
+
+    function sanitizeInput(str) {
+      if (!str) return '';
+      return str.replace(/[<>'"]/g, '').trim();
     }
   </script>
 </body>
