@@ -3,11 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Guess Who - Custom Game Builder</title>
+  <title id="doc-title">Guess Who Engine</title>
+  
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -16,227 +19,400 @@
           fontFamily: { sans: ['Inter', 'sans-serif'], arabic: ['Cairo', 'sans-serif'] },
           colors: {
             slate: { 950: '#070a12', 900: '#0f172a', 800: '#1e293b' },
-            gold: { 400: '#fbbf24', 500: '#f59e0b', 600: '#d97706' }
+            gold: { 400: '#fbbf24', 500: '#f59e0b', 600: '#d97706', glow: '#ffe600' }
           }
         }
       }
     }
   </script>
+
   <style>
-    body { font-family: 'Inter', 'Cairo', sans-serif; background-color: #070a12; color: #f8fafc; }
+    body { font-family: 'Inter', 'Cairo', sans-serif; background-color: #070a12; color: #f8fafc; overflow-x: hidden; user-select: none; }
+
+    @keyframes cardShake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-8px) rotate(-1deg); }
+      40% { transform: translateX(8px) rotate(1deg); }
+      60% { transform: translateX(-6px); }
+      80% { transform: translateX(6px); }
+    }
+    .animate-card-shake { animation: cardShake 0.45s cubic-bezier(.36,.07,.19,.97) both; }
+
+    @keyframes wordImpact {
+      0% { opacity: 0; transform: scale(4) translateY(-100px); filter: blur(10px); }
+      70% { opacity: 1; transform: scale(0.9) translateY(0); filter: blur(0px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .kinetic-word { animation: wordImpact 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+
+    @keyframes goldGlow {
+      0%, 100% { text-shadow: 0 0 20px #f59e0b, 0 0 40px #fbbf24, 0 0 80px #ffe600; }
+      50% { text-shadow: 0 0 35px #f59e0b, 0 0 70px #fbbf24, 0 0 110px #ffe600; }
+    }
+    .gold-text-glow { animation: goldGlow 1.5s infinite ease-in-out; }
+
+    .gold-particle {
+      position: absolute;
+      background: radial-gradient(circle, #ffe600 0%, rgba(245, 158, 11, 0) 70%);
+      border-radius: 50%;
+      pointer-events: none;
+      animation: floatUp 4s infinite linear;
+    }
+    @keyframes floatUp {
+      0% { transform: translateY(100vh) scale(0); opacity: 0; }
+      50% { opacity: 0.8; }
+      100% { transform: translateY(-10vh) scale(1.5); opacity: 0; }
+    }
+
+    @keyframes springPop {
+      0% { transform: scale(0.6); opacity: 0; }
+      70% { transform: scale(1.05); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .animate-spring-pop { animation: springPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
     .glass-panel { background: rgba(19, 29, 51, 0.75); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); }
+    .option-card { transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+    .option-card:hover:not(:disabled) { transform: translateY(-4px) scale(1.02); border-color: rgba(245, 158, 11, 0.6); box-shadow: 0 10px 25px -5px rgba(245, 158, 11, 0.25); }
+    [lang="ar"] .font-arabic-override { font-family: 'Cairo', sans-serif !important; }
   </style>
 </head>
-<body class="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-between p-4 md:p-8">
+<body class="text-slate-100 bg-slate-950">
 
-  <div class="w-full max-w-4xl mx-auto">
-    <!-- Header -->
-    <header class="text-center mb-8">
-      <div class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-amber-500 to-indigo-600 flex items-center justify-center text-3xl font-black text-white shadow-lg shadow-amber-500/20">
-        🛠️
+  <!-- MAIN MENU -->
+  <div id="main-menu" class="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden">
+    <div class="glass-panel border-amber-500/30 rounded-3xl p-8 md:p-12 max-w-lg w-full text-center shadow-2xl relative z-10 animate-spring-pop">
+      <div class="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-tr from-amber-500 to-indigo-600 flex items-center justify-center font-extrabold text-4xl shadow-lg text-white mb-6">
+        🎮
       </div>
-      <h1 class="text-3xl md:text-5xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-amber-400 via-indigo-300 to-cyan-400">
-        Guess Who Game Builder
+      <h1 id="menu-game-title" class="text-4xl md:text-5xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-amber-400 via-indigo-300 to-cyan-400 mb-2">
+        Guess Who?
       </h1>
-      <p class="text-slate-400 text-sm md:text-base mt-2">Create custom interactive riddle games & share instantly via GitHub Pages.</p>
-    </header>
-
-    <!-- Metadata Form -->
-    <div class="glass-panel rounded-3xl p-6 md:p-8 shadow-2xl mb-8 space-y-6">
-      <h2 class="text-xl font-bold text-amber-400 flex items-center gap-2">⚙️ Game Configuration</h2>
+      <p id="menu-game-subtitle" class="text-slate-400 font-medium mb-10 text-sm md:text-base">Custom Interactive Edition</p>
       
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-xs font-bold uppercase text-slate-400 mb-2">Game Title</label>
-          <input type="text" id="game-title" value="Classroom Guess Who" placeholder="e.g. Office Trivia 2026" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white font-semibold focus:outline-none focus:border-amber-400" />
-        </div>
-        <div>
-          <label class="block text-xs font-bold uppercase text-slate-400 mb-2">Game Subtitle</label>
-          <input type="text" id="game-subtitle" value="Interactive Custom Edition" placeholder="e.g. Friends & Classmates" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white font-semibold focus:outline-none focus:border-amber-400" />
-        </div>
-      </div>
-    </div>
-
-    <!-- Riddles List Section -->
-    <div class="glass-panel rounded-3xl p-6 md:p-8 shadow-2xl mb-8 space-y-6">
-      <div class="flex justify-between items-center">
-        <h2 class="text-xl font-bold text-amber-400 flex items-center gap-2">🧩 Game Riddles</h2>
-        <button onclick="addRiddleForm()" class="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black rounded-xl text-xs uppercase tracking-wider transition">
-          + Add Riddle
+      <div class="flex flex-col gap-4">
+        <button onclick="startGame()" class="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-slate-950 font-black text-xl rounded-2xl shadow-xl transition transform active:scale-95">
+          <span id="label-menu-start">Start Game ▶</span>
+        </button>
+        <button onclick="openLeaderboard()" class="w-full py-4 bg-slate-800 hover:bg-slate-700 text-indigo-300 font-bold text-lg rounded-2xl transition border border-slate-700">
+          🏆 <span id="label-menu-leaderboard">Leaderboard</span>
         </button>
       </div>
 
-      <div id="riddles-container" class="space-y-6">
-        <!-- Dynamic Riddle Cards Populated by JS -->
-      </div>
-    </div>
-
-    <!-- Output & Export -->
-    <div class="glass-panel rounded-3xl p-6 md:p-8 shadow-2xl text-center space-y-4">
-      <button onclick="generateGameLink()" class="w-full py-4 bg-gradient-to-r from-amber-500 via-indigo-500 to-cyan-500 hover:opacity-90 text-slate-950 font-black text-xl rounded-2xl shadow-xl transition transform active:scale-98">
-        🚀 Generate Playable Link
-      </button>
-
-      <div id="share-link-container" class="hidden mt-6 space-y-3">
-        <label class="block text-xs font-bold uppercase text-emerald-400">Shareable Game Link Generated!</label>
-        <div class="flex gap-2">
-          <input type="text" id="share-url" readonly class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-amber-300 text-xs font-mono select-all focus:outline-none" />
-          <button onclick="copyShareLink()" class="px-5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition text-sm">
-            Copy
-          </button>
-        </div>
-        <a id="launch-play-btn" target="_blank" href="#" class="inline-block mt-2 text-sm text-cyan-400 underline font-semibold hover:text-cyan-300">
-          Open play.html directly ↗
-        </a>
+      <div class="mt-8 flex justify-center">
+        <button onclick="toggleLanguage()" class="px-4 py-2 text-sm font-semibold rounded-xl bg-slate-900 border border-slate-700 transition flex items-center gap-2 text-slate-300">
+          <span id="menu-lang-flag">🇬🇧</span>
+          <span id="menu-lang-text">EN / AR</span>
+        </button>
       </div>
     </div>
   </div>
 
-  <footer class="mt-8 text-xs text-slate-500">
-    Designed for GitHub Pages Dynamic Builder Workflow
-  </footer>
+  <!-- GAME VIEW -->
+  <div id="game-view" class="hidden min-h-screen flex-col justify-between w-full">
+    <!-- Header -->
+    <header class="w-full max-w-6xl mx-auto px-4 py-4 flex items-center justify-between border-b border-slate-800/80">
+      <div class="flex items-center gap-3 cursor-pointer" onclick="showMainMenu()">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-indigo-600 flex items-center justify-center font-extrabold text-xl text-white">🎮</div>
+        <div>
+          <h1 id="header-game-title" class="text-lg font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-amber-400 to-cyan-400">Guess Who?</h1>
+          <p id="header-game-subtitle" class="text-xs text-slate-400 font-medium">Custom Edition</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button onclick="toggleLanguage()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 border border-slate-700">
+          <span id="lang-flag">🇬🇧</span> <span id="lang-text">EN / AR</span>
+        </button>
+        <button onclick="toggleAudio()" class="p-2 text-sm rounded-lg bg-slate-800 border border-slate-700 text-amber-400">
+          <span id="audio-icon">🔊</span>
+        </button>
+        <div class="glass-panel px-4 py-1.5 rounded-xl border border-amber-500/30 flex items-center gap-2">
+          <span class="text-xs text-slate-400 uppercase font-semibold" id="label-score">Score:</span>
+          <span id="score-display" class="text-lg font-black text-amber-400">0.0</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="w-full max-w-5xl mx-auto px-4 py-6 flex-grow flex flex-col justify-center">
+      <div class="mb-6">
+        <div class="flex justify-between items-center text-xs font-bold text-slate-400 mb-2">
+          <span id="riddle-progress-text">RIDDLE 1</span>
+          <span id="points-possible-text" class="text-amber-400">Worth: 1.0 Point</span>
+        </div>
+        <div class="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden p-0.5 border border-slate-800">
+          <div id="progress-bar-fill" class="h-full bg-gradient-to-r from-amber-500 via-indigo-500 to-cyan-400 rounded-full transition-all duration-500" style="width: 10%;"></div>
+        </div>
+      </div>
+
+      <div id="live-feedback-bar" class="hidden mb-4 p-3 rounded-2xl bg-red-950/80 border border-red-500/50 text-red-300 text-xs font-bold text-center animate-spring-pop">
+        <span id="live-feedback-text">❌ Incorrect guess! (-0.5 Point penalty)</span>
+      </div>
+
+      <div id="riddle-card" class="glass-panel rounded-3xl p-6 md:p-10 shadow-2xl relative overflow-hidden">
+        <div class="flex items-center justify-between mb-4">
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+            <span class="w-2 h-2 rounded-full bg-indigo-400 animate-ping"></span>
+            <span id="label-mystery-prompt">WHO IS THIS PERSON?</span>
+          </span>
+          <span class="text-xs font-semibold text-slate-400 bg-slate-800 px-2.5 py-1 rounded-lg">
+            Attempt: <span id="attempt-count-text" class="text-white font-bold">1</span>
+          </span>
+        </div>
+
+        <div class="min-h-[120px] flex items-center justify-center text-center my-4">
+          <blockquote id="riddle-text" class="text-xl md:text-3xl font-bold leading-relaxed text-slate-100 whitespace-pre-line"></blockquote>
+        </div>
+
+        <div class="mt-6 flex flex-col items-center border-t border-slate-800/80 pt-4">
+          <button onclick="revealHint()" class="text-xs font-semibold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-4 py-2 rounded-xl border border-amber-500/20">
+            💡 <span id="label-reveal-hint">Need a Hint? (-0.5 Point penalty)</span>
+          </button>
+          <div id="hint-box" class="hidden mt-3 p-3.5 bg-amber-950/40 border border-amber-500/30 rounded-xl text-amber-200 text-sm text-center max-w-xl animate-spring-pop">
+            <strong>💡 <span id="label-hint-title">Hint:</span></strong> <span id="hint-text"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-8">
+        <h3 class="text-center text-xs font-bold uppercase tracking-wider text-slate-400 mb-4" id="label-select-classmate">
+          Select Option:
+        </h3>
+        <div id="options-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-4"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Universal Kinetic Reveal Overlay -->
+  <div id="kinetic-overlay" class="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center hidden overflow-hidden">
+    <div id="gold-particles-container" class="absolute inset-0 pointer-events-none z-0"></div>
+
+    <div id="kinetic-words-box" class="relative z-10 text-center flex flex-col items-center justify-center min-h-[320px] px-4">
+      <div id="kw-1" class="hidden text-3xl md:text-5xl font-black text-slate-400 uppercase mb-2">YOU</div>
+      <div id="kw-2" class="hidden text-4xl md:text-6xl font-black text-amber-400 uppercase mb-2">ARE</div>
+      <div id="kw-3" class="hidden text-5xl md:text-7xl font-black text-emerald-400 uppercase mb-3">CORRECT!</div>
+      <div id="kw-4" class="hidden text-2xl md:text-4xl font-black text-slate-300 uppercase mb-4">THE ONE AND ONLY</div>
+      <div id="kw-5" class="hidden text-5xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-400 to-yellow-500 gold-text-glow uppercase"></div>
+    </div>
+
+    <div id="reveal-card" class="hidden relative z-20 glass-panel border-amber-500/60 rounded-3xl p-8 max-w-lg w-full text-center shadow-2xl animate-spring-pop bg-slate-950/90">
+      <div id="reveal-student-emoji" class="text-7xl mb-2 animate-bounce">🎭</div>
+      <span class="px-4 py-1.5 bg-amber-500/20 text-amber-300 text-xs font-black tracking-widest rounded-full border border-amber-500/40 inline-block mb-3">✨ CORRECT ANSWER ✨</span>
+      <h2 id="reveal-student-name" class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-yellow-200 mb-2">NAME</h2>
+      <p id="reveal-student-title" class="text-slate-300 font-semibold text-sm mb-6">Trait</p>
+
+      <button onclick="nextRiddle()" class="w-full py-4 bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 font-black text-xl rounded-2xl shadow-xl">
+        Continue ➔
+      </button>
+    </div>
+  </div>
 
   <script>
-    let riddleCount = 0;
-
-    const sampleData = [
-      {
-        name: "Sara",
-        emoji: "🎨",
-        titleEn: "The Creative Visionary",
-        titleAr: "المبدعة الرائدة",
-        riddleEn: "Angel from the outside, the opposite on the inside who am I?",
-        riddleAr: "ملاك من الخارج، والعكس تماماً من الداخل. من أكون؟",
-        hintEn: "She's silent in class",
-        hintAr: "هادئة جداً في الصف."
-      },
-      {
-        name: "Mahmoud",
-        emoji: "⚽",
-        titleEn: "The Athlete",
-        titleAr: "الرياضي المميز",
-        riddleEn: "Friendly by nature, dangerous when provoked. Who am I?",
-        riddleAr: "ودود بطبعي، وخطير عند الاستفزاز. من أكون؟",
-        hintEn: "He loves football.",
-        hintAr: "يحب كرة القدم كثيراً."
+    class AudioEngine {
+      constructor() { this.ctx = null; this.muted = false; }
+      init() {
+        if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (this.ctx.state === 'suspended') this.ctx.resume();
       }
-    ];
+      playWrongSound() {
+        if (this.muted) return; this.init();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(140, now); osc.frequency.exponentialRampToValueAtTime(45, now + 0.35);
+        gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        osc.connect(gain); gain.connect(this.ctx.destination); osc.start(now); osc.stop(now + 0.36);
+      }
+      playSubBoom() {
+        if (this.muted) return; this.init();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+        osc.type = 'sine'; osc.frequency.setValueAtTime(160, now); osc.frequency.exponentialRampToValueAtTime(25, now + 0.6);
+        gain.gain.setValueAtTime(0.8, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+        osc.connect(gain); gain.connect(this.ctx.destination); osc.start(now); osc.stop(now + 0.7);
+      }
+    }
+
+    const audio = new AudioEngine();
+    let GAME_DATA = null;
+    let currentLang = 'en';
+    let currentRiddleIndex = 0;
+    let currentAttempts = 1;
+    let hintUsed = false;
+    let totalScore = 0.0;
 
     window.onload = function() {
-      sampleData.forEach(item => addRiddleForm(item));
+      loadGameDataFromURL();
     };
 
-    function addRiddleForm(data = {}) {
-      riddleCount++;
-      const container = document.getElementById('riddles-container');
+    function loadGameDataFromURL() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const encodedGame = urlParams.get('game');
 
-      const card = document.createElement('div');
-      card.id = `riddle-card-${riddleCount}`;
-      card.className = "bg-slate-900/90 border border-slate-800 rounded-2xl p-5 relative space-y-4";
-      
-      card.innerHTML = `
-        <div class="flex justify-between items-center border-b border-slate-800 pb-3">
-          <span class="text-xs font-black text-slate-400 uppercase">Riddle #${riddleCount}</span>
-          <button onclick="removeRiddle(${riddleCount})" class="text-xs font-bold text-red-400 hover:text-red-300">✕ Remove</button>
-        </div>
+      if (encodedGame) {
+        try {
+          const jsonStr = decodeURIComponent(escape(atob(decodeURIComponent(encodedGame))));
+          GAME_DATA = JSON.parse(jsonStr);
+        } catch (e) {
+          console.error("Failed to parse game data from URL parameter:", e);
+        }
+      }
 
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <label class="block text-xs font-semibold text-slate-400 mb-1">Target Name</label>
-            <input type="text" class="r-name w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm font-bold text-white" value="${data.name || ''}" placeholder="e.g. Alex" />
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-400 mb-1">Emoji Icon</label>
-            <input type="text" class="r-emoji w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-center" value="${data.emoji || '🎭'}" placeholder="🎭" />
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-400 mb-1">Title Trait (EN)</label>
-            <input type="text" class="r-title-en w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm" value="${data.titleEn || ''}" placeholder="e.g. Mastermind" />
-          </div>
-        </div>
+      if (!GAME_DATA || !GAME_DATA.riddles || GAME_DATA.riddles.length === 0) {
+        GAME_DATA = {
+          title: "Custom Guess Who",
+          subtitle: "Sample Dynamic Game",
+          riddles: [
+            {
+              id: "demo1",
+              name: "Alex",
+              emoji: "🚀",
+              title: { en: "The Innovator", ar: "المبتكر" },
+              riddle: { en: "Always looking for the next big idea. Who am I?", ar: "أبحث دائماً عن الفكرة العظيمة التالية. من أكون؟" },
+              hint: { en: "Loves technology.", ar: "يحب التكنولوجيا." }
+            }
+          ]
+        };
+      }
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-semibold text-slate-400 mb-1">Riddle Text (English)</label>
-            <textarea class="r-riddle-en w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white h-20">${data.riddleEn || ''}</textarea>
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-400 mb-1">Riddle Text (Arabic - Optional)</label>
-            <textarea dir="rtl" class="r-riddle-ar w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white h-20">${data.riddleAr || ''}</textarea>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-semibold text-slate-400 mb-1">Hint (English)</label>
-            <input type="text" class="r-hint-en w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs" value="${data.hintEn || ''}" />
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-400 mb-1">Hint (Arabic)</label>
-            <input type="text" dir="rtl" class="r-hint-ar w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs" value="${data.hintAr || ''}" />
-          </div>
-        </div>
-      `;
-
-      container.appendChild(card);
+      document.getElementById('doc-title').textContent = GAME_DATA.title;
+      document.getElementById('menu-game-title').textContent = GAME_DATA.title;
+      document.getElementById('menu-game-subtitle').textContent = GAME_DATA.subtitle;
+      document.getElementById('header-game-title').textContent = GAME_DATA.title;
+      document.getElementById('header-game-subtitle').textContent = GAME_DATA.subtitle;
     }
 
-    function removeRiddle(id) {
-      const el = document.getElementById(`riddle-card-${id}`);
-      if (el) el.remove();
+    function showMainMenu() {
+      document.getElementById('game-view').classList.add('hidden');
+      document.getElementById('game-view').classList.remove('flex');
+      document.getElementById('main-menu').classList.remove('hidden');
+      document.getElementById('main-menu').classList.add('flex');
     }
 
-    function generateGameLink() {
-      const title = document.getElementById('game-title').value.trim() || "Custom Guess Who";
-      const subtitle = document.getElementById('game-subtitle').value.trim() || "Dynamic Edition";
+    function startGame() {
+      document.getElementById('main-menu').classList.add('hidden');
+      document.getElementById('main-menu').classList.remove('flex');
+      document.getElementById('game-view').classList.remove('hidden');
+      document.getElementById('game-view').classList.add('flex');
+      totalScore = 0.0;
+      document.getElementById('score-display').textContent = "0.0";
+      loadRiddle(0);
+    }
 
-      const cards = document.querySelectorAll('#riddles-container > div');
-      const riddles = [];
+    function toggleAudio() {
+      audio.muted = !audio.muted;
+      document.getElementById('audio-icon').textContent = audio.muted ? '🔇' : '🔊';
+    }
 
-      cards.forEach((card, idx) => {
-        const name = card.querySelector('.r-name').value.trim();
-        if (!name) return;
+    function toggleLanguage() {
+      currentLang = currentLang === 'en' ? 'ar' : 'en';
+      document.documentElement.lang = currentLang;
+      document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+      loadRiddle(currentRiddleIndex, true);
+    }
 
-        riddles.push({
-          id: `r_${idx}_${Date.now()}`,
-          name: name,
-          emoji: card.querySelector('.r-emoji').value.trim() || '⭐',
-          title: {
-            en: card.querySelector('.r-title-en').value.trim() || "Classmate",
-            ar: card.querySelector('.r-title-en').value.trim()
-          },
-          riddle: {
-            en: card.querySelector('.r-riddle-en').value.trim(),
-            ar: card.querySelector('.r-riddle-ar').value.trim() || card.querySelector('.r-riddle-en').value.trim()
-          },
-          hint: {
-            en: card.querySelector('.r-hint-en').value.trim() || "No hint available",
-            ar: card.querySelector('.r-hint-ar').value.trim() || "لا يوجد تلميح"
-          }
-        });
-      });
-
-      if (riddles.length === 0) {
-        alert("Please add at least one riddle with a target name!");
+    function loadRiddle(index, preserveState = false) {
+      if (index >= GAME_DATA.riddles.length) {
+        alert(`Game Complete! Final Score: ${totalScore.toFixed(1)}`);
+        showMainMenu();
         return;
       }
 
-      const gameObject = { title, subtitle, riddles };
-      const jsonStr = JSON.stringify(gameObject);
-      const encodedData = encodeURIComponent(btoa(unescape(encodeURIComponent(jsonStr))));
+      currentRiddleIndex = index;
+      if (!preserveState) { currentAttempts = 1; hintUsed = false; }
 
-      const playUrl = `${window.location.origin}${window.location.pathname.replace('index.html', '')}play.html?game=${encodedData}`;
+      const target = GAME_DATA.riddles[index];
+      document.getElementById('riddle-progress-text').textContent = `RIDDLE ${index + 1} OF ${GAME_DATA.riddles.length}`;
+      document.getElementById('progress-bar-fill').style.width = `${((index + 1) / GAME_DATA.riddles.length) * 100}%`;
+      document.getElementById('attempt-count-text').textContent = currentAttempts;
 
-      document.getElementById('share-url').value = playUrl;
-      document.getElementById('launch-play-btn').href = playUrl;
-      document.getElementById('share-link-container').classList.remove('hidden');
+      document.getElementById('riddle-text').textContent = `"${target.riddle[currentLang] || target.riddle.en}"`;
+      document.getElementById('hint-text').textContent = target.hint[currentLang] || target.hint.en;
+
+      if (hintUsed) document.getElementById('hint-box').classList.remove('hidden');
+      else document.getElementById('hint-box').classList.add('hidden');
+
+      document.getElementById('live-feedback-bar').classList.add('hidden');
+      renderOptionsGrid();
     }
 
-    function copyShareLink() {
-      const input = document.getElementById('share-url');
-      input.select();
-      navigator.clipboard.writeText(input.value);
-      alert("Game link copied to clipboard!");
+    function renderOptionsGrid() {
+      const grid = document.getElementById('options-grid');
+      grid.innerHTML = '';
+
+      GAME_DATA.riddles.forEach(item => {
+        const btn = document.createElement('button');
+        btn.className = "option-card py-3.5 px-4 rounded-2xl font-bold text-sm glass-panel border border-slate-700/60 shadow-lg text-slate-200 flex items-center justify-between";
+        btn.onclick = () => handleGuess(item.name, btn);
+        btn.innerHTML = `<span class="flex items-center gap-2"><span>${item.emoji || '⭐'}</span><span>${item.name}</span></span><span class="status-indicator text-xs"></span>`;
+        grid.appendChild(btn);
+      });
+    }
+
+    function revealHint() {
+      if (hintUsed) return;
+      hintUsed = true;
+      document.getElementById('hint-box').classList.remove('hidden');
+    }
+
+    function handleGuess(selectedName, btnElement) {
+      const target = GAME_DATA.riddles[currentRiddleIndex];
+      if (selectedName.toLowerCase() === target.name.toLowerCase()) {
+        let pts = (currentAttempts === 1 && !hintUsed) ? 1.0 : 0.5;
+        totalScore += pts;
+        document.getElementById('score-display').textContent = totalScore.toFixed(1);
+        launchKineticSequence(target);
+      } else {
+        audio.playWrongSound();
+        if (btnElement) {
+          btnElement.classList.add('animate-card-shake', 'bg-red-950/60', 'border-red-500/80', 'text-red-300');
+          btnElement.querySelector('.status-indicator').textContent = '✕ WRONG';
+          btnElement.disabled = true;
+        }
+        currentAttempts++;
+        document.getElementById('attempt-count-text').textContent = currentAttempts;
+        document.getElementById('live-feedback-bar').classList.remove('hidden');
+      }
+    }
+
+    function launchKineticSequence(target) {
+      const overlay = document.getElementById('kinetic-overlay');
+      const kw1 = document.getElementById('kw-1');
+      const kw2 = document.getElementById('kw-2');
+      const kw3 = document.getElementById('kw-3');
+      const kw4 = document.getElementById('kw-4');
+      const kw5 = document.getElementById('kw-5');
+      const card = document.getElementById('reveal-card');
+
+      kw5.textContent = target.name.toUpperCase();
+      overlay.classList.remove('hidden');
+      document.getElementById('kinetic-words-box').classList.remove('hidden');
+      card.classList.add('hidden');
+
+      [kw1, kw2, kw3, kw4, kw5].forEach(el => el.classList.add('hidden', 'kinetic-word'));
+
+      setTimeout(() => { kw1.classList.remove('hidden'); audio.playSubBoom(); }, 150);
+      setTimeout(() => { kw2.classList.remove('hidden'); audio.playSubBoom(); }, 650);
+      setTimeout(() => { kw3.classList.remove('hidden'); audio.playSubBoom(); }, 1150);
+      setTimeout(() => { kw4.classList.remove('hidden'); audio.playSubBoom(); }, 1650);
+      setTimeout(() => {
+        kw5.classList.remove('hidden');
+        audio.playSubBoom();
+        confetti({ particleCount: 180, spread: 100 });
+      }, 2350);
+
+      setTimeout(() => {
+        document.getElementById('kinetic-words-box').classList.add('hidden');
+        card.classList.remove('hidden');
+        document.getElementById('reveal-student-emoji').textContent = target.emoji || '🎭';
+        document.getElementById('reveal-student-name').textContent = target.name;
+        document.getElementById('reveal-student-title').textContent = target.title[currentLang] || target.title.en;
+      }, 3700);
+    }
+
+    function nextRiddle() {
+      document.getElementById('kinetic-overlay').classList.add('hidden');
+      loadRiddle(currentRiddleIndex + 1);
     }
   </script>
 </body>
