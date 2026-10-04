@@ -2,102 +2,160 @@
 <html lang="en" class="dark">
 <head>
   <meta charset="UTF-8">
-  <title>Create Your Guess Who Game</title>
+  <title>Create Your Custom Guess Who</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 </head>
-<body class="bg-slate-950 text-slate-100 font-sans p-8">
-  <div class="max-w-3xl mx-auto glass-panel p-8 rounded-3xl border border-amber-500/30">
-    <h1 class="text-4xl font-black text-amber-400 mb-6">Game Builder</h1>
+<body class="bg-slate-950 text-slate-100 font-sans p-4 md:p-8">
+  <div class="max-w-4xl mx-auto glass-panel p-6 md:p-10 rounded-3xl border border-amber-500/30 bg-slate-900/50">
+    <h1 class="text-4xl font-black text-amber-400 mb-2">Game Builder</h1>
+    <p class="text-slate-400 mb-8">Design your own custom version of the Lycée Pascal Barja game.</p>
     
-    <!-- Game Meta Data -->
-    <div class="space-y-4 mb-8">
-      <input type="text" id="game-title" placeholder="Game Title (e.g., Guess the Developer)" class="w-full p-3 bg-slate-900 rounded-xl border border-slate-700 text-white">
-      <input type="text" id="game-subtitle" placeholder="Subtitle" class="w-full p-3 bg-slate-900 rounded-xl border border-slate-700 text-white">
-      <input type="text" id="global-options" placeholder="Comma-separated list of ALL possible answer options (e.g., Zouheir, Mahmoud, Amar)" class="w-full p-3 bg-slate-900 rounded-xl border border-slate-700 text-white">
+    <!-- Game Meta Data & Settings -->
+    <div class="space-y-6 mb-8 p-6 bg-slate-900 rounded-2xl border border-slate-700 shadow-xl">
+      <h2 class="text-xl font-bold text-white mb-2">1. Main Information & Rules</h2>
+      
+      <input type="text" id="game-title" placeholder="Game Title (e.g., Guess the Developer)" class="w-full p-3 bg-slate-800 rounded-xl border border-slate-700 text-white focus:border-amber-400 focus:outline-none transition">
+      <input type="text" id="game-subtitle" placeholder="Subtitle (e.g., Grade 9 Edition)" class="w-full p-3 bg-slate-800 rounded-xl border border-slate-700 text-white focus:border-amber-400 focus:outline-none transition">
+      
+      <div class="pt-4 border-t border-slate-700 mt-4">
+        <label class="flex items-center gap-3 text-white font-bold cursor-pointer mb-4">
+          <input type="checkbox" id="setting-points" checked class="w-5 h-5 accent-amber-500 rounded">
+          Enable Points System & Leaderboard
+        </label>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="text-xs text-slate-400 uppercase font-bold mb-1 block">Hint Penalty (Points deducted)</label>
+            <input type="number" step="0.1" id="setting-hint-penalty" value="0.5" class="w-full p-3 bg-slate-800 rounded-xl border border-slate-700 text-white focus:border-amber-400">
+          </div>
+          <div>
+            <label class="text-xs text-slate-400 uppercase font-bold mb-1 block">Wrong Guess Penalty (Points deducted)</label>
+            <input type="number" step="0.1" id="setting-wrong-penalty" value="0.5" class="w-full p-3 bg-slate-800 rounded-xl border border-slate-700 text-white focus:border-amber-400">
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Riddles Container -->
+    <h2 class="text-xl font-bold text-white mb-4">2. Build Your Riddles</h2>
     <div id="riddles-container" class="space-y-6 mb-8">
       <!-- Riddle blocks generated here -->
     </div>
 
-    <button onclick="addRiddleBlock()" class="w-full py-3 mb-4 bg-slate-800 rounded-xl text-indigo-300 font-bold border border-slate-700">+ Add Another Riddle</button>
-    <button onclick="generateGame()" class="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black text-xl rounded-xl">Generate Unique Link 🚀</button>
+    <div class="flex flex-col md:flex-row gap-4 mb-4">
+      <button onclick="addRiddleBlock()" class="flex-1 py-4 bg-slate-800 hover:bg-slate-700 rounded-xl text-indigo-300 font-bold border border-slate-700 transition">
+        + Add Another Riddle
+      </button>
+      <button id="generate-btn" onclick="generateGame()" class="flex-1 py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xl rounded-xl shadow-lg transition">
+        Generate Unique Link 🚀
+      </button>
+    </div>
 
     <!-- Output Link -->
-    <div id="link-output" class="hidden mt-6 p-4 bg-emerald-900/40 border border-emerald-500 rounded-xl text-center text-emerald-300 font-bold"></div>
+    <div id="link-output" class="hidden p-6 bg-emerald-900/30 border border-emerald-500/50 rounded-2xl text-center shadow-xl animate-bounce"></div>
   </div>
 
   <script>
-    // 1. Initialize Firebase (Replace with YOUR config)
+    // 1. Initialize Firebase with YOUR exact config
     const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT.firebaseapp.com",
-      databaseURL: "https://YOUR_PROJECT.firebaseio.com",
-      projectId: "YOUR_PROJECT",
+      apiKey: "AIzaSyCph3KRkKFYMdPlwUviavHaZ9QngiKWGaU",
+      authDomain: "riddle-701ae.firebaseapp.com",
+      databaseURL: "https://riddle-701ae-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "riddle-701ae",
+      storageBucket: "riddle-701ae.firebasestorage.app",
+      messagingSenderId: "748642861259",
+      appId: "1:748642861259:web:c016f007988340fc165b4e",
+      measurementId: "G-SPXP0W5NDY"
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // 2. Form Logic
+    // 2. Dynamic Form Logic
     function addRiddleBlock() {
       const container = document.getElementById('riddles-container');
       const index = container.children.length + 1;
       const html = `
-        <div class="p-4 bg-slate-900 border border-slate-700 rounded-xl riddle-block">
-          <h3 class="font-bold text-amber-400 mb-2">Riddle ${index}</h3>
-          <input type="text" class="r-question w-full p-2 mb-2 bg-slate-800 rounded text-white" placeholder="The Riddle/Question">
-          <input type="text" class="r-hint w-full p-2 mb-2 bg-slate-800 rounded text-white" placeholder="The Hint">
-          <input type="text" class="r-correct w-full p-2 mb-2 bg-slate-800 rounded text-white" placeholder="Correct Answer (Exact Match to options)">
-          <input type="text" class="r-emoji w-full p-2 bg-slate-800 rounded text-white" placeholder="Winning Emoji (e.g., 💻)">
+        <div class="p-5 bg-slate-900 border border-slate-700 rounded-2xl riddle-block shadow-md relative">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="font-black text-lg text-amber-400">Riddle ${index}</h3>
+            ${index > 1 ? `<button onclick="this.parentElement.parentElement.remove()" class="text-red-400 hover:text-red-300 text-sm font-bold bg-red-900/30 px-3 py-1 rounded-lg">Remove ✕</button>` : ''}
+          </div>
+          <input type="text" class="r-question w-full p-3 mb-3 bg-slate-800 rounded-xl text-white border border-slate-700 focus:border-amber-400 focus:outline-none" placeholder="The Riddle/Question">
+          <input type="text" class="r-hint w-full p-3 mb-3 bg-slate-800 rounded-xl text-white border border-slate-700 focus:border-amber-400 focus:outline-none" placeholder="The Hint">
+          <input type="text" class="r-options w-full p-3 mb-3 bg-slate-800 rounded-xl text-white border border-slate-700 focus:border-amber-400 focus:outline-none" placeholder="Options for THIS riddle (Comma separated: Zouheir, Mahmoud, Amar)">
+          <div class="grid grid-cols-2 gap-3">
+            <input type="text" class="r-correct w-full p-3 bg-slate-800 rounded-xl text-white border border-slate-700 focus:border-amber-400 focus:outline-none" placeholder="Correct Answer (Exact match to one option)">
+            <input type="text" class="r-emoji w-full p-3 bg-slate-800 rounded-xl text-white border border-slate-700 focus:border-amber-400 focus:outline-none" placeholder="Winning Emoji (e.g., 💻)">
+          </div>
         </div>`;
       container.insertAdjacentHTML('beforeend', html);
     }
 
-    addRiddleBlock(); // Init with one block
+    addRiddleBlock();
 
-    // 3. Save to Firebase & Generate Link
+    // 3. Save & Generate Link (with Error Catching)
     async function generateGame() {
-      const title = document.getElementById('game-title').value;
-      const subtitle = document.getElementById('game-subtitle').value;
-      const optionsStr = document.getElementById('global-options').value;
-      const optionsArray = optionsStr.split(',').map(s => s.trim());
+      const btn = document.getElementById('generate-btn');
+      btn.textContent = "Generating... ⏳";
+      btn.disabled = true;
 
-      const blocks = document.querySelectorAll('.riddle-block');
-      const customRiddles = [];
+      try {
+        const title = document.getElementById('game-title').value || "Guess Who";
+        const subtitle = document.getElementById('game-subtitle').value || "Custom Edition";
+        
+        // Grab Settings
+        const usePoints = document.getElementById('setting-points').checked;
+        const hintPenalty = parseFloat(document.getElementById('setting-hint-penalty').value) || 0;
+        const wrongPenalty = parseFloat(document.getElementById('setting-wrong-penalty').value) || 0;
 
-      blocks.forEach(block => {
-        customRiddles.push({
-          riddleText: block.querySelector('.r-question').value,
-          hintText: block.querySelector('.r-hint').value,
-          correctAnswer: block.querySelector('.r-correct').value,
-          emoji: block.querySelector('.r-emoji').value
+        const blocks = document.querySelectorAll('.riddle-block');
+        const customRiddles = [];
+
+        blocks.forEach(block => {
+          const rawOptions = block.querySelector('.r-options').value;
+          customRiddles.push({
+            riddleText: block.querySelector('.r-question').value,
+            hintText: block.querySelector('.r-hint').value,
+            options: rawOptions.split(',').map(s => s.trim()).filter(s => s !== ""),
+            correctAnswer: block.querySelector('.r-correct').value.trim(),
+            emoji: block.querySelector('.r-emoji').value || '🎉'
+          });
         });
-      });
 
-      const gameData = {
-        title: title,
-        subtitle: subtitle,
-        options: optionsArray,
-        riddles: customRiddles,
-        createdAt: Date.now()
-      };
+        const gameData = {
+          title: title,
+          subtitle: subtitle,
+          settings: { usePoints, hintPenalty, wrongPenalty },
+          riddles: customRiddles,
+          createdAt: Date.now()
+        };
 
-      // Push to Firebase Realtime Database
-      const newGameRef = db.ref('custom_games').push();
-      await newGameRef.set(gameData);
+        // Push to Firebase
+        const newGameRef = db.ref('custom_games').push();
+        await newGameRef.set(gameData);
 
-      // Construct the shareable URL
-      const uniqueId = newGameRef.key;
-      const baseURL = window.location.href.replace('index.html', ''); 
-      const shareableLink = `${baseURL}play.html?id=${uniqueId}`;
-      
-      const linkDiv = document.getElementById('link-output');
-      linkDiv.innerHTML = `Success! Share this link to let people play:<br><a href="${shareableLink}" class="text-amber-400 underline mt-2 inline-block">${shareableLink}</a>`;
-      linkDiv.classList.remove('hidden');
+        // Success UI
+        const uniqueId = newGameRef.key;
+        const baseURL = window.location.href.replace('index.html', '').split('?')[0]; 
+        const shareableLink = `${baseURL}play.html?id=${uniqueId}`;
+        
+        const linkDiv = document.getElementById('link-output');
+        linkDiv.innerHTML = `
+          <h3 class="text-emerald-400 font-black text-2xl mb-2">Game Created Successfully!</h3>
+          <p class="text-slate-300 text-sm mb-4">Share this link with your friends so they can play:</p>
+          <a href="${shareableLink}" target="_blank" class="block w-full p-4 bg-slate-900 border border-emerald-500/30 rounded-xl text-emerald-300 font-bold break-all hover:bg-slate-800 transition">${shareableLink}</a>
+        `;
+        linkDiv.classList.remove('hidden');
+
+      } catch (error) {
+        alert("Failed to create game. Please check your connection. Error: " + error.message);
+      } finally {
+        btn.textContent = "Generate Unique Link 🚀";
+        btn.disabled = false;
+      }
     }
   </script>
 </body>
